@@ -1,0 +1,34 @@
+import L2Object from "./L2Object";
+export default class L2Mail extends L2Object {
+    private _itemsList;
+    private _to;
+    private _title;
+    private _description;
+    private _senderName;
+    private _isLocked;
+    private _isUnread;
+    private _hasAttachments;
+    private _expiration;
+    private _expirationSeconds;
+    private _requiresAdena;
+    get To(): string;
+    set To(value: string);
+    get Title(): string;
+    set Title(value: string);
+    get Description(): string;
+    set Description(value: string);
+    get SenderName(): string;
+    set SenderName(value: string);
+    get IsLocked(): boolean;
+    set IsLocked(value: boolean);
+    get IsUnread(): boolean;
+    set IsUnread(value: boolean);
+    get HasAttachments(): boolean;
+    set HasAttachments(value: boolean);
+    get Expiration(): Date;
+    set Expiration(value: Date);
+    get ExpirationSeconds(): number;
+    set ExpirationSeconds(value: number);
+    get RequiresAdena(): number;
+    set RequiresAdena(value: number);
+}

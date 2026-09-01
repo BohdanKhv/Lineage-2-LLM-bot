@@ -1,0 +1,186 @@
+[
+  {
+    "slot": 1,
+    "classId": 88,
+    "name": "Duelist",
+    "role": "melee",
+    "weapon": 6580,
+    "ench": 15,
+    "armor": "heavy",
+    "skills": [
+      1,
+      6,
+      190,
+      9,
+      5,
+      345
+    ],
+    "armorSet": 43,
+    "armorSetName": "Imperial Crusader Breastplate",
+    "armorGrade": "s",
+    "armorIcon": "armor_t88_u_i00",
+    "armorPieces": [
+      6373,
+      6374,
+      6378,
+      6375,
+      6376
+    ]
+  },
+  {
+    "slot": 2,
+    "classId": 89,
+    "name": "Dreadnought",
+    "role": "melee",
+    "weapon": 6370,
+    "ench": 8,
+    "armor": "heavy",
+    "skills": [
+      36,
+      48,
+      255,
+      290
+    ],
+    "armorSet": 40,
+    "armorSetName": "Majestic Plate Armor",
+    "armorGrade": "a",
+    "armorIcon": "armor_t83_ul_i00",
+    "armorPieces": [
+      2383,
+      2419,
+      5774,
+      5786
+    ]
+  },
+  {
+    "slot": 3,
+    "classId": 90,
+    "name": "PhoenixKnight",
+    "role": "melee",
+    "weapon": 6580,
+    "ench": 8,
+    "armor": "heavy",
+    "skills": [
+      49,
+      3,
+      196
+    ],
+    "armorSet": 43,
+    "armorSetName": "Imperial Crusader Breastplate",
+    "armorGrade": "s",
+    "armorIcon": "armor_t88_u_i00",
+    "armorPieces": [
+      6373,
+      6374,
+      6378,
+      6375,
+      6376
+    ]
+  },
+  {
+    "slot": 4,
+    "classId": 92,
+    "name": "Sagittarius",
+    "role": "archer",
+    "weapon": "7577",
+    "ench": 50,
+    "armor": "light",
+    "skills": [
+      101,
+      19,
+      24,
+      56
+    ],
+    "armorSet": 44,
+    "armorSetName": "Draconic Leather Armor",
+    "armorGrade": "s",
+    "armorIcon": "armor_t89_ul_i00",
+    "armorPieces": [
+      6379,
+      6382,
+      6380,
+      6381
+    ],
+    "weaponName": "Draconic Bow - Focus",
+    "weaponGrade": "s"
+  },
+  {
+    "slot": 5,
+    "classId": 93,
+    "name": "Adventurer",
+    "role": "dagger",
+    "weapon": "6592",
+    "ench": 7,
+    "armor": "light",
+    "skills": [
+      263,
+      30,
+      409,
+      16
+    ],
+    "armorSet": 44,
+    "armorSetName": "Draconic Leather Armor",
+    "armorGrade": "s",
+    "armorIcon": "armor_t89_ul_i00",
+    "armorPieces": [
+      6379,
+      6382,
+      6380,
+      6381
+    ],
+    "weaponName": "Angel Slayer - Haste",
+    "weaponGrade": "s"
+  },
+  {
+    "slot": 6,
+    "classId": 94,
+    "name": "Archmage",
+    "role": "melee",
+    "weapon": "6608",
+    "ench": 8,
+    "armor": "robe",
+    "skills": [
+      1231,
+      1230,
+      1220
+    ],
+    "armorSet": 33,
+    "armorSetName": "Dark Crystal Robe",
+    "armorGrade": "a",
+    "armorIcon": "armor_t76_ul_i00",
+    "armorPieces": [
+      2407,
+      512,
+      5767,
+      5779
+    ],
+    "weaponName": "Arcana Mace - Acumen",
+    "weaponGrade": "s"
+  },
+  {
+    "slot": 7,
+    "classId": 103,
+    "name": "MysticMuse",
+    "role": "melee",
+    "weapon": "6579",
+    "ench": 10,
+    "armor": "robe",
+    "skills": [
+      1235,
+      1231,
+      1236
+    ],
+    "armorSet": 33,
+    "armorSetName": "Dark Crystal Robe",
+    "armorGrade": "a",
+    "armorIcon": "armor_t76_ul_i00",
+    "armorPieces": [
+      2407,
+      512,
+      5767,
+      5779
+    ],
+    "weaponName": "Arcana Mace",
+    "weaponGrade": "s"
+  }
+]

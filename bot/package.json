@@ -1,0 +1,18 @@
+{
+  "name": "l2-arena-bot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "description": "Headless Interlude bot client + web control panel for local L2 arena (Phase 3/4)",
+  "scripts": {
+    "server": "node server/api.js",
+    "provision": "node diverse-gearup.js",
+    "battle": "node battle.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "jimp": "^0.22.12",
+    "mysql2": "^3.11.5"
+  }
+}

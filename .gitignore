@@ -1,0 +1,18 @@
+# --- game client & server installs (huge binaries, not our source) ---
+lineage/
+elmore/
+*.rar
+
+# --- node ---
+node_modules/
+
+# --- build output & runtime artifacts ---
+bot/webui/dist/
+bot/icons/
+bot/crests/
+bot/gameserver.log
+bot/match.json
+
+# --- editor/OS noise ---
+.vscode/
+Thumbs.db

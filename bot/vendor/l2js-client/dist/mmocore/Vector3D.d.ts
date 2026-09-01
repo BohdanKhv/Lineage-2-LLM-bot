@@ -1,0 +1,34 @@
+export default class Vector3D {
+    private _x;
+    private _y;
+    private _z;
+    get X(): number;
+    set X(value: number);
+    get Y(): number;
+    set Y(value: number);
+    get Z(): number;
+    set Z(value: number);
+    constructor(x: number, y: number, z: number);
+    get magnitude(): number;
+    get normal(): number;
+    get length(): number;
+    normalize(): Vector3D;
+    add(a: Vector3D): Vector3D;
+    subtract(a: Vector3D): Vector3D;
+    multiplyScalar(s: number): Vector3D;
+    divideScalar(s: number): Vector3D;
+    eq(b: Vector3D): boolean;
+    neq(b: Vector3D): boolean;
+    multiply(b: Vector3D): Vector3D;
+    divide(b: Vector3D): Vector3D;
+    angle(to: Vector3D): number;
+    dot(b: Vector3D): number;
+    cross(b: Vector3D): Vector3D;
+    distance(b: Vector3D): number;
+    negate(): Vector3D;
+    abs(): Vector3D;
+    reflect(): Vector3D;
+    lerp(b: Vector3D, a: number): Vector3D;
+    static max(a: Vector3D, b: Vector3D): Vector3D;
+    static min(a: Vector3D, b: Vector3D): Vector3D;
+}

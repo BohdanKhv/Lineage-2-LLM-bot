@@ -1,0 +1,34 @@
+import GameClientPacket from "./GameClientPacket";
+export default class StatusUpdate extends GameClientPacket {
+    static readonly LEVEL: number;
+    static readonly EXP: number;
+    static readonly STR: number;
+    static readonly DEX: number;
+    static readonly CON: number;
+    static readonly INT: number;
+    static readonly WIT: number;
+    static readonly MEN: number;
+    static readonly CUR_HP: number;
+    static readonly MAX_HP: number;
+    static readonly CUR_MP: number;
+    static readonly MAX_MP: number;
+    static readonly SP: number;
+    static readonly CUR_LOAD: number;
+    static readonly MAX_LOAD: number;
+    static readonly P_ATK: number;
+    static readonly ATK_SPD: number;
+    static readonly P_DEF: number;
+    static readonly EVASION: number;
+    static readonly ACCURACY: number;
+    static readonly CRITICAL: number;
+    static readonly M_ATK: number;
+    static readonly CAST_SPD: number;
+    static readonly M_DEF: number;
+    static readonly PVP_FLAG: number;
+    static readonly KARMA: number;
+    static readonly CUR_CP: number;
+    static readonly MAX_CP: number;
+    ObjectId: number;
+    Stats: Record<number, number>;
+    readImpl(): boolean;
+}

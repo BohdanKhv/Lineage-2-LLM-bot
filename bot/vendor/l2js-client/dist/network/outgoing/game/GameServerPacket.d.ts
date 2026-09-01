@@ -1,0 +1,30 @@
+import SendablePacket from "../../../mmocore/SendablePacket";
+export default abstract class GameServerPacket extends SendablePacket {
+    static readonly PAPERDOLL_UNDER: number;
+    static readonly PAPERDOLL_HEAD: number;
+    static readonly PAPERDOLL_HAIR: number;
+    static readonly PAPERDOLL_HAIR2: number;
+    static readonly PAPERDOLL_NECK: number;
+    static readonly PAPERDOLL_RHAND: number;
+    static readonly PAPERDOLL_CHEST: number;
+    static readonly PAPERDOLL_LHAND: number;
+    static readonly PAPERDOLL_REAR: number;
+    static readonly PAPERDOLL_LEAR: number;
+    static readonly PAPERDOLL_GLOVES: number;
+    static readonly PAPERDOLL_LEGS: number;
+    static readonly PAPERDOLL_FEET: number;
+    static readonly PAPERDOLL_RFINGER: number;
+    static readonly PAPERDOLL_LFINGER: number;
+    static readonly PAPERDOLL_LBRACELET: number;
+    static readonly PAPERDOLL_RBRACELET: number;
+    static readonly PAPERDOLL_DECO1: number;
+    static readonly PAPERDOLL_DECO2: number;
+    static readonly PAPERDOLL_DECO3: number;
+    static readonly PAPERDOLL_DECO4: number;
+    static readonly PAPERDOLL_DECO5: number;
+    static readonly PAPERDOLL_DECO6: number;
+    static readonly PAPERDOLL_CLOAK: number;
+    static readonly PAPERDOLL_BELT: number;
+    static readonly PAPERDOLL_TOTALSLOTS: number;
+    static readonly PAPERDOLL_ORDER: number[];
+}

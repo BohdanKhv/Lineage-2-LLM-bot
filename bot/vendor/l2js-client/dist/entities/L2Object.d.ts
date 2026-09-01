@@ -1,0 +1,31 @@
+import EventEmmiter from "../mmocore/EventEmitter";
+export default class L2Object extends EventEmmiter {
+    private _id;
+    private _objectId;
+    private _name;
+    private _x;
+    private _y;
+    private _z;
+    private _heading;
+    private _distance;
+    get Distance(): number;
+    set Distance(value: number);
+    get Heading(): number;
+    set Heading(value: number);
+    get Id(): number;
+    set Id(value: number);
+    get ObjectId(): number;
+    set ObjectId(value: number);
+    get Name(): string;
+    set Name(value: string);
+    get X(): number;
+    set X(value: number);
+    get Y(): number;
+    set Y(value: number);
+    get Z(): number;
+    set Z(value: number);
+    get Location(): [number, number, number, number];
+    set Location(loc: [x: number, y: number, z: number, heading?: number]);
+    calculateDistance(dest: L2Object): number;
+    constructor(init?: Partial<L2Object>);
+}

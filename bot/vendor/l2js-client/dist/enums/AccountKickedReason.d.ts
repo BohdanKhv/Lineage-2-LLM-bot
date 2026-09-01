@@ -1,0 +1,6 @@
+export declare enum AccountKickedReason {
+    REASON_DATA_STEALER = 1,
+    REASON_GENERIC_VIOLATION = 8,
+    REASON_7_DAYS_SUSPENDED = 16,
+    REASON_PERMANENTLY_BANNED = 32
+}

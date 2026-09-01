@@ -1,0 +1,31 @@
+import ReceivablePacket from "./ReceivablePacket";
+import IPacketHandler from "./IPacketHandler";
+import EventEmitter from "./EventEmitter";
+import IConnection from "./IConnection";
+import Logger from "./Logger";
+import MMOSession from "./MMOSession";
+import IProcessable from "./IProcessable";
+import SendablePacket from "./SendablePacket";
+import IMMOClientMutator from "./IMMOClientMutator";
+import AbstractPacket from "./AbstractPacket";
+import MMOConfig from "./MMOConfig";
+export default abstract class MMOClient extends EventEmitter implements IProcessable {
+    protected logger: Logger;
+    abstract init(config: MMOConfig, connection?: IConnection): this;
+    abstract encrypt(data: Uint8Array, offset: number, size: number): void;
+    abstract decrypt(data: Uint8Array, offset: number, size: number): void;
+    abstract sendPacket(packet: SendablePacket): void;
+    abstract pack(packet: SendablePacket): Uint8Array;
+    PacketHandler: IPacketHandler<MMOClient>;
+    Session: MMOSession;
+    Connection: IConnection;
+    get IsConnected(): boolean;
+    private _buffer;
+    private _mts;
+    private _mutate;
+    registerMutator(mutator: IMMOClientMutator<MMOClient, AbstractPacket>): void;
+    connect(): Promise<void>;
+    process(raw: Uint8Array): Promise<ReceivablePacket>;
+    sendRaw(raw: Uint8Array): Promise<void>;
+    hexString(data: Uint8Array): string;
+}

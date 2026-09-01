@@ -1,0 +1,30 @@
+export default class BlowfishEngine {
+    static readonly KP: number[];
+    static readonly KS0: number[];
+    static readonly KS1: number[];
+    static readonly KS2: number[];
+    static readonly KS3: number[];
+    static readonly ROUNDS: number;
+    static readonly BLOCK_SIZE: number;
+    static readonly SBOX_SK: number;
+    static readonly P_SZ: number;
+    S0: number[];
+    S1: number[];
+    S2: number[];
+    S3: number[];
+    P: number[];
+    workingKey: Uint8Array;
+    constructor();
+    init(key: Uint8Array): void;
+    setKey(key: Uint8Array): void;
+    processTable(xl: number, xr: number, table: number[]): void;
+    F(x: number): number;
+    getBlockSize(): number;
+    encryptBlock(src: Uint8Array, srcIndex: number, dst: Uint8Array, dstIndex: number): void;
+    decryptBlock(src: Uint8Array, srcIndex: number, dst: Uint8Array, dstIndex: number): void;
+    signedToUnsigned(signed: number): number;
+    xor(a: number, b: number): number;
+    addMod32(a: number, b: number): number;
+    bytesTo32Bits(b: Uint8Array, i: number): number;
+    bits32ToBytes(inb: number, b: Uint8Array, offset: number): void;
+}

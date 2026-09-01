@@ -1,0 +1,32 @@
+import GameServerPacket from "./GameServerPacket";
+export default class Say2 extends GameServerPacket {
+    type: number;
+    text: string;
+    target?: string | undefined;
+    static readonly ALL: number;
+    static readonly SHOUT: number;
+    static readonly TELL: number;
+    static readonly PARTY: number;
+    static readonly CLAN: number;
+    static readonly GM: number;
+    static readonly PETITION_PLAYER: number;
+    static readonly PETITION_GM: number;
+    static readonly TRADE: number;
+    static readonly ALLIANCE: number;
+    static readonly ANNOUNCEMENT: number;
+    static readonly BOAT: number;
+    static readonly L2FRIEND: number;
+    static readonly MSNCHAT: number;
+    static readonly PARTYMATCH_ROOM: number;
+    static readonly PARTYROOM_COMMANDER: number;
+    static readonly PARTYROOM_ALL: number;
+    static readonly HERO_VOICE: number;
+    static readonly CRITICAL_ANNOUNCE: number;
+    static readonly SCREEN_ANNOUNCE: number;
+    static readonly BATTLEFIELD: number;
+    static readonly MPCC_ROOM: number;
+    static readonly NPC_ALL: number;
+    static readonly NPC_SHOUT: number;
+    constructor(type: number, text: string, target?: string | undefined);
+    write(): void;
+}

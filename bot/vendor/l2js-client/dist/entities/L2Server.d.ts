@@ -1,0 +1,36 @@
+import { ServerStatus } from "../enums/ServerStatus";
+import { ServerTypes } from "../enums/ServerTypes";
+import { ServerAges } from "../enums/ServerAges";
+export default class L2Server {
+    private _id;
+    private _ip;
+    private _port;
+    private _ageLimit;
+    private _pvp;
+    private _currentPlayers;
+    private _maxPlayers;
+    private _status;
+    private _serverType;
+    private _brackets;
+    get Id(): number;
+    set Id(value: number);
+    get Ip(): number;
+    set Ip(value: number);
+    get Port(): number;
+    set Port(value: number);
+    get AgeLimit(): ServerAges;
+    set AgeLimit(value: ServerAges);
+    get Pvp(): number;
+    set Pvp(value: number);
+    get CurrentPlayers(): number;
+    set CurrentPlayers(value: number);
+    get MaxPlayers(): number;
+    set MaxPlayers(value: number);
+    get Status(): ServerStatus;
+    set Status(value: ServerStatus);
+    get ServerType(): ServerTypes;
+    set ServerType(value: ServerTypes);
+    get Brackets(): number;
+    set Brackets(value: number);
+    Ipv4(): string;
+}
