@@ -330,16 +330,14 @@
     "slot": 12,
     "classId": 97,
     "name": "Cardinal",
-    "role": "melee",
+    "role": "healer",
     "weapon": "6608",
     "ench": 1,
     "armor": "robe",
     "skills": [
-      1399,
-      1147,
-      1184,
-      1177,
-      1069
+      1217,
+      1218,
+      1401
     ],
     "enchMax": 16,
     "armorEnchMax": 16,

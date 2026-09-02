@@ -142,10 +142,14 @@ export default class StatusUpdateMutator extends IMMOClientMutator<
             // todo
             break;
           case StatusUpdate.CUR_CP:
-            // todo
+            if (typeof char !== "undefined") {
+              char.Cp = value;
+            }
             break;
           case StatusUpdate.MAX_CP:
-            // todo
+            if (typeof char !== "undefined") {
+              char.MaxCp = value;
+            }
             break;
         }
       });

@@ -9,6 +9,7 @@ class Attack extends GameClientPacket_1.default {
         super(...arguments);
         this.AttackerObjectId = 0;
         this.Subjects = [];
+        this.Hits = [];
     }
     readImpl() {
         const _id = this.readC();
@@ -17,6 +18,7 @@ class Attack extends GameClientPacket_1.default {
         const _damage = this.readD();
         const _flags = this.readC();
         this.Subjects.push(_targetId);
+        this.Hits.push({ targetId: _targetId, damage: _damage, flags: _flags });
         const [_attackerX, _attackerY, _attackerZ] = this.readLoc();
         const _hitSize = this.readH();
         for (let i = 0; i < _hitSize; i++) {
@@ -24,8 +26,12 @@ class Attack extends GameClientPacket_1.default {
             const _damage1 = this.readD();
             const _flags1 = this.readC();
             this.Subjects.push(_targetId1);
+            this.Hits.push({ targetId: _targetId1, damage: _damage1, flags: _flags1 });
         }
-        const [_targetX, _targetY, _targetZ] = this.readLoc();
+        try {
+            this.readLoc();
+        }
+        catch (e) { }
         return true;
     }
 }

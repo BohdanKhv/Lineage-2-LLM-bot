@@ -133,8 +133,14 @@ class StatusUpdateMutator extends IMMOClientMutator_1.default {
                     case StatusUpdate_1.default.KARMA:
                         break;
                     case StatusUpdate_1.default.CUR_CP:
+                        if (typeof char !== "undefined") {
+                            char.Cp = value;
+                        }
                         break;
                     case StatusUpdate_1.default.MAX_CP:
+                        if (typeof char !== "undefined") {
+                            char.MaxCp = value;
+                        }
                         break;
                 }
             });

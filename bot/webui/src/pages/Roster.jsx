@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { api } from "../api.js";
 import Icon from "../components/Icon.jsx";
 
-const ROLES = ["melee", "archer", "mage", "dagger"];
+const ROLES = ["melee", "archer", "mage", "dagger", "healer"];
 const gradeCls = (g) => "grade-" + (g || "none");
 const Grade = ({ g }) => <span className={gradeCls(g)} style={{ fontWeight: 700 }}>[{(g || "?").toUpperCase()}]</span>;
 
@@ -129,7 +129,7 @@ export default function Roster({ notify }) {
         </div>
 
         <div className="slot head">
-          <div>#</div><div>Class</div><div>Weapon</div><div>Armor set / Role</div><div>Skill rotation</div>
+          <div>#</div><div>Class</div><div>Weapon</div><div>Armor set / Role / Potions</div><div>Skill rotation (healer role: pick HEAL skills)</div>
         </div>
         {comp.map((s, i) => (
           <div className="slot" key={i}>
@@ -174,6 +174,13 @@ export default function Roster({ notify }) {
               <select value={s.role} onChange={(e) => update(i, { role: e.target.value })} style={{ width: "100%", marginTop: 6 }}>
                 {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
               </select>
+              <div className="row" style={{ gap: 4, marginTop: 4, flexWrap: "nowrap" }} title="potions given at provisioning — bots auto-use Greater CP Potions under 60% CP and Mana Potions under 35% MP">
+                <span className="muted" style={{ fontSize: 11 }}>CP</span>
+                <input style={{ width: 58 }} type="number" min={0} value={s.cpPots ?? 5000} onChange={(e) => update(i, { cpPots: Math.max(0, +e.target.value || 0) })} />
+                <span className="muted" style={{ fontSize: 11 }}>MP</span>
+                <input style={{ width: 58 }} type="number" min={0} value={s.mpPots ?? 5000} onChange={(e) => update(i, { mpPots: Math.max(0, +e.target.value || 0) })} />
+                <span className="muted" style={{ fontSize: 11 }}>pots</span>
+              </div>
             </div>
             <div>
               <SkillPicker classId={s.classId} selected={s.skills || []} onToggle={(id) => toggleSkill(i, id)} />

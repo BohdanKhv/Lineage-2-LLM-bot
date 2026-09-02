@@ -50,8 +50,8 @@ const DEFAULT_COMP = [
   { slot: 11, classId: 95, name: "Soultaker",     role: "mage",   weapon: 6579, ench: 10, armor: "robe",
     skills: [1148, 1234, 1159, 1170, 1172, 1069] }, // Death Spike, Vampiric Claw, Curse Death Link, Anchor, Aura Burn, Sleep
   // Cardinal — Bishop endgame: not a nuker; mana burn + light nukes + CC
-  { slot: 12, classId: 97, name: "Cardinal",      role: "mage",   weapon: 6579, ench: 10, armor: "robe",
-    skills: [1399, 1147, 1184, 1177, 1069] }, // Mana Storm, Vampiric Touch, Ice Bolt, Wind Strike, Sleep
+  { slot: 12, classId: 97, name: "Cardinal",      role: "healer", weapon: 6579, ench: 10, armor: "robe",
+    skills: [1217, 1218, 1401] },           // HEALER: Greater Heal, Greater Battle Heal, Major Heal (rotation of heals)
   // Storm Screamer — dark-elf nuker (Spellhowler endgame)
   { slot: 13, classId: 110, name: "StormScreamer", role: "mage",  weapon: 6579, ench: 10, armor: "robe",
     skills: [1239, 1234, 1267, 1148, 1417] }, // Hurricane, Vampiric Claw, Shadow Flare, Death Spike, Aura Flash

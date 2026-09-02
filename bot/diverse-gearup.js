@@ -35,14 +35,15 @@ const OBJ_BASE = 320000000;
 const allChars = q(`SELECT char_name FROM characters WHERE char_name REGEXP '^(Red|Blue)[0-9]+$'
   ORDER BY char_name;`).trim().split(/\r?\n/).filter(Boolean);
 
-// Clear ALL previously-provisioned items in one shot first. Object-ids are keyed
-// by loop position, so per-character deletes can't prevent cross-character
-// collisions when the roster order changes — a single upfront wipe does.
+// Wipe the whole provisioned object-id range regardless of who holds it now:
+// dropped gear can end up in another character's bag (e.g. Admin looting a
+// ring) and would collide with the fresh inserts. Then drop starter weapons.
+q(`DELETE FROM items WHERE object_id BETWEEN 310000000 AND 399999999;`);
 q(`DELETE i FROM items i JOIN characters c ON i.owner_id=c.charId
-   WHERE c.char_name REGEXP '^(Red|Blue)[0-9]+$'
-     AND (i.item_id IN (10,134) OR i.object_id BETWEEN 310000000 AND 399999999);`);
+   WHERE c.char_name REGEXP '^(Red|Blue)[0-9]+$' AND i.item_id IN (10,134);`);
 
 let idx = 0;
+const ROLLS = {}; // character number -> rolled enchants (shared by Red N / Blue N)
 for (const name of allChars) {
   {
     const num = parseInt(name.replace(/\D/g, ""), 10);
@@ -58,14 +59,22 @@ for (const name of allChars) {
     // Enchants roll randomly within the slot's range (from..to) so every
     // character gets its own value; a bare `ench` is a fixed value.
     const rnd = (lo, hi) => { lo = Math.max(0, +lo || 0); hi = Math.max(lo, +hi || lo); return lo + Math.floor(Math.random() * (hi - lo + 1)); };
-    const wEnch = capTo(rnd(c.ench, c.enchMax ?? c.ench), CAPS.weapon);
+    // MIRRORED rolls: Red N and Blue N get identical enchants, so ranges add
+    // variety within a team but never bias a match (a lucky side won 7-0 otherwise).
     const armorLo = c.armorEnch ?? 0, armorHi = c.armorEnchMax ?? armorLo;
-    const items = [[c.weapon, wEnch], ...armorPieces.map((a) => [a, capTo(rnd(armorLo, armorHi), CAPS.armor)]), ...JEWELS.map((j) => [j, 0])];
+    if (!ROLLS[num]) ROLLS[num] = { w: rnd(c.ench, c.enchMax ?? c.ench), a: armorPieces.map(() => rnd(armorLo, armorHi)) };
+    const wEnch = capTo(ROLLS[num].w, CAPS.weapon);
+    const items = [[c.weapon, wEnch], ...armorPieces.map((a, k) => [a, capTo(ROLLS[num].a[k] ?? rnd(armorLo, armorHi), CAPS.armor)]), ...JEWELS.map((j) => [j, 0])];
+    // Consumables the bots auto-use: Greater CP Potions + Mana Potions (roster cpPots/mpPots, default 5000).
+    const POTS = [[5592, c.cpPots ?? 5000, 18], [728, c.mpPots ?? 5000, 17]];
     items.forEach(([item, ench], i) => {
       const oid = OBJ_BASE + idx * 20 + i;
       q(`INSERT INTO items (owner_id, object_id, item_id, count, enchant_level, loc, loc_data, custom_type1, custom_type2, mana_left, first_owner_id, creator_id, creation_time)
          VALUES (${cid}, ${oid}, ${item}, 1, ${ench}, 'INVENTORY', 0, 0, 0, -1, ${cid}, 0, 0);`);
     });
+
+    POTS.forEach(([item, count, off]) => { if (count > 0) q(`INSERT INTO items (owner_id, object_id, item_id, count, enchant_level, loc, loc_data, custom_type1, custom_type2, mana_left, first_owner_id, creator_id, creation_time)
+         VALUES (${cid}, ${OBJ_BASE + idx * 20 + off}, ${item}, ${count}, 0, 'INVENTORY', 0, 0, 0, -1, ${cid}, 0, 0);`); });
 
     // Bow users get a fat stack of grade-matched arrows — a bow with no arrows
     // cannot attack AT ALL (another silent "bot just stands there" cause).

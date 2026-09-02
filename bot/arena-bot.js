@@ -52,6 +52,18 @@ class ArenaBot {
         this._lastAttacker = p.AttackerObjectId;
         this._lastAttackerAt = Date.now();
       }
+      // Damage taken per creature (last few seconds) — a healer's "who's being hit".
+      if (p && Array.isArray(p.Hits)) {
+        const now = Date.now();
+        this._dmg = this._dmg || new Map();
+        for (const h of p.Hits) {
+          if (!h || !(h.damage > 0)) continue;
+          const e = this._dmg.get(h.targetId) || { total: 0, at: now };
+          if (now - e.at > 4000) { e.total = 0; }
+          e.total += h.damage; e.at = now;
+          this._dmg.set(h.targetId, e);
+        }
+      }
     });
     this._startHeartbeat();
     return this;
@@ -159,6 +171,80 @@ class ArenaBot {
   say(text) { this.client.say(text); }
   useItem(objectId) { this.client.useItem(objectId); }
 
+  // --- consumables: auto-pot CP and MP ---
+  // Greater CP Potion (5592) / CP Potion (5591) below 60% CP; Mana Potion (728) /
+  // Mana Drug (726) below 35% MP. Potions are found by item id in the server's
+  // item list (so counts are real), throttled to one of each per 3s.
+  _potionObj(...itemIds) {
+    const inv = Array.from(this.client.InventoryItems || []);
+    for (const id of itemIds) { const it = inv.find((i) => i.Id === id && (i.Count ?? 1) > 0); if (it) return it.ObjectId; }
+    return null;
+  }
+  autoPotions() {
+    const me = this.client.Me;
+    if (!me || this.isDead()) return;
+    const now = Date.now();
+    // MaxCp is not in the Interlude UserInfo we parse; StatusUpdate gives CUR_CP
+    // (and sometimes MAX_CP). Use MAX_CP when known, else the peak CP seen so far.
+    if (Number.isFinite(me.Cp)) this._cpPeak = Math.max(this._cpPeak || 0, me.Cp);
+    const maxCp = me.MaxCp > 0 ? me.MaxCp : (this._cpPeak || 0);
+    if (maxCp > 0 && me.Cp / maxCp < 0.6 && now - (this._lastCpPot || 0) > 3000) {
+      const o = this._potionObj(5592, 5591);
+      if (o) { this.useItem(o); this._lastCpPot = now; if (process.env.L2_DEBUG) console.log(`  [${this.username}] POT cp ${me.Cp}/${maxCp}`); }
+    }
+    if (me.MaxMp > 0 && me.Mp / me.MaxMp < 0.35 && now - (this._lastMpPot || 0) > 3000) {
+      const o = this._potionObj(728, 726); if (o) { this.useItem(o); this._lastMpPot = now; if (process.env.L2_DEBUG) console.log(`  [${this.username}] POT mp ${me.Mp}/${me.MaxMp}`); }
+    }
+  }
+
+  // --- healer role: keep the team alive instead of attacking ---
+  // isAlly(name) says who's on our side. Other players' HP is only known once
+  // the server tells us (StatusUpdate), which it does when we SELECT them — so
+  // each idle tick selects one ally round-robin to refresh its HP. Heals go to
+  // the most-hurt ally (or self) under 85%, rotating through the heal skills.
+  healerBattle(isAlly, { skills = null } = {}, intervalMs = 1000) {
+    this.stopBattle();
+    const heals = Array.isArray(skills) && skills.length ? skills : [1217, 1015];
+    this._scanIdx = 0; this._healIdx = 0;
+    this._battle = setInterval(() => {
+      if (this.isDead()) return;
+      this.autoPotions();
+      this.autoPotions();
+      const me = this.client.Me;
+      if (!me) return;
+      const st = this.getState();
+      const allies = st.targets.filter((t) => t.name && isAlly(t.name));
+      const now = Date.now();
+      const dmgOf = (id) => { const e = this._dmg && this._dmg.get(id); return e && now - e.at <= 4000 ? e.total : 0; };
+      // 1) an ally whose HP we actually know is low; 2) whoever took the most
+      // damage in the last 4s (melee hits are broadcast to everyone in range);
+      // 3) ourselves.
+      const hurt = allies.filter((a) => Number.isFinite(a.hpPercent) && a.hpPercent < 85)
+        .sort((x, y) => x.hpPercent - y.hpPercent)[0];
+      const beaten = allies.map((a) => [a, dmgOf(a.objectId)]).filter(([, d]) => d > 0).sort((x, y) => y[1] - x[1])[0];
+      const selfPct = st.self.hpPercent;
+      const selfDmg = dmgOf(me.ObjectId);
+      let target = null;
+      if (hurt) target = { objectId: hurt.objectId, name: hurt.name };
+      else if (beaten && beaten[1] >= selfDmg) target = { objectId: beaten[0].objectId, name: beaten[0].name };
+      else if ((Number.isFinite(selfPct) && selfPct < 85) || selfDmg > 0) target = { objectId: me.ObjectId, name: me.Name };
+      if (target) {
+        this._curTargetName = "heal " + target.name; // shows in the status grid
+        this.castOn(heals[this._healIdx++ % heals.length], target.objectId);
+        return;
+      }
+      this._curTargetName = null;
+      if (allies.length) {
+        // Refresh one ally's HP (selecting them makes the server send its StatusUpdate).
+        const a = allies[this._scanIdx++ % allies.length];
+        this.client.GameClient.sendPacket(new Action(a.objectId, me.X, me.Y, me.Z, false));
+        // Stay with the team: close in if the nearest ally is far.
+        const near = [...allies].sort((p, q) => (p.distance ?? 1e9) - (q.distance ?? 1e9))[0];
+        if (near && (near.distance ?? 0) > 400) this.moveTo(near.x, near.y, near.z);
+      }
+    }, intervalMs);
+  }
+
   // --- simple scripted combat loop ---
   // isEnemy(name) decides who to attack. Re-issues force-attack on the nearest
   // enemy each tick; the client auto-attacks between. (No moveTo — it cancels
@@ -168,19 +254,36 @@ class ArenaBot {
 
   // Smart scripted combat: focus the team's called target (lowest-id living
   // enemy), WALK into range if too far, then attack / cast.
-  autoBattle(isEnemy, { role = "melee", skills = null } = {}, intervalMs = 1000) {
+  // focus: optional shared Map(enemyObjectId -> Set(attacker names)) owned by
+  // the engine, so a TEAM spreads its attacks: at most `focusLimit` bots pile
+  // onto one enemy while others are free. Without it every bot converges on the
+  // nearest target, one victim evaporates instantly and the match snowballs.
+  autoBattle(isEnemy, { role = "melee", skills = null, focus = null, focusLimit = 2 } = {}, intervalMs = 1000) {
     this.stopBattle();
     this._curTarget = null;
     this._reaffirm = 0;
+    const meName = () => (this.client.Me && this.client.Me.Name) || this.username;
+    const claim = (id) => {
+      if (!focus) return;
+      if (this._focusOn && this._focusOn !== id) { const prev = focus.get(this._focusOn); if (prev) prev.delete(meName()); }
+      if (id) { if (!focus.has(id)) focus.set(id, new Set()); focus.get(id).add(meName()); }
+      this._focusOn = id;
+    };
     this._battle = setInterval(() => {
-      if (this.isDead()) return;
+      if (this.isDead()) { claim(null); return; }
+      this.autoPotions();
       const enemies = this.getState().targets.filter((t) => t.name && isEnemy(t.name));
-      if (!enemies.length) { this._curTarget = null; this._curTargetName = null; return; }
+      if (!enemies.length) { this._curTarget = null; this._curTargetName = null; claim(null); return; }
+      const byDist = (a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9);
       // Prefer an enemy already in range (fight your neighbor, land sustained
-      // hits); only if none is close, advance on the nearest one.
-      const inRange = enemies.filter((e) => (e.distance ?? 1e9) <= this._range(role));
-      const pick = (inRange.length ? inRange : enemies)
-        .sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9))[0];
+      // hits); only if none is close, advance on the nearest one. With a shared
+      // focus map, skip enemies that already have focusLimit OTHER allies on them.
+      const load = (e) => { const set = focus && focus.get(e.objectId); return set ? set.size - (set.has(meName()) ? 1 : 0) : 0; };
+      const free = focus ? enemies.filter((e) => load(e) < focusLimit) : enemies;
+      const pool = free.length ? free : enemies;
+      const inRange = pool.filter((e) => (e.distance ?? 1e9) <= this._range(role));
+      const pick = (inRange.length ? inRange : pool).sort(byDist)[0];
+      claim(pick.objectId);
       if (process.env.L2_DEBUG && pick.objectId !== this._curTarget)
         console.log(`  [${this.username}] → target ${pick.name} (id ${pick.objectId}, hp ${pick.hpPercent}%, dist ${pick.distance}) of ${enemies.length} enemies; dead-set=${this._dead.size}`);
       this.engage(pick, role, skills);
@@ -228,6 +331,7 @@ class ArenaBot {
     this._role = role; this._skills = skills; this._curTarget = null;
     this._battle = setInterval(() => {
       if (this.isDead()) return;
+      this.autoPotions();
       const wanted = getTargetName && getTargetName();
       let target = null;
       const view = this.getState().targets;
@@ -252,6 +356,7 @@ class ArenaBot {
       if (inFlight) return;
       const me = this.client.Me;
       if (!me || !(me.Hp > 0)) return; // dead or not ready
+      this.autoPotions();
       const enemies = this.getState().targets.filter((t) => t.name && isEnemy(t.name));
       if (!enemies.length) return;
       inFlight = true;

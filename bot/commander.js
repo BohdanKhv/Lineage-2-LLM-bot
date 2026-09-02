@@ -105,6 +105,7 @@ async function main() {
   const roster = [];
   teams.forEach((t) => teamChars(t).forEach((n, i) =>
     roster.push({ acc: n.toLowerCase(), name: n, role: COMP[i % COMP.length] })));
+  const rosterNames = new Set(roster.map((r) => r.name)); // healers heal anyone in the squad
 
   // If a previous session was just killed, the server is still saving those
   // characters — wait for them to show offline before we touch anything.
@@ -126,7 +127,8 @@ async function main() {
       const res = parseCommand((p.Messages || []).join(" "), p.CharName);
       if (res && echo) console.log(`\n[${p.CharName}] "${(p.Messages || []).join(" ")}"  ->  ${res}\n`);
     });
-    bot.commanderBattle(() => command.targetName, { role: role.role, skills: role.skills });
+    if (role.role === "healer") bot.healerBattle((n) => rosterNames.has(n), { skills: role.skills });
+    else bot.commanderBattle(() => command.targetName, { role: role.role, skills: role.skills });
   };
 
   // Concurrent boot (see battle.js) — sequential logins made big rosters slow.

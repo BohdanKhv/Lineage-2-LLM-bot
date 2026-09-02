@@ -116,7 +116,12 @@ async function main() {
   // reports as unworn, staggered so a big roster doesn't broadcast at once.
   const t0 = Date.now();
   const bots = [];
-  const queue = [...allMembers];
+  // Interleave the two teams in boot order so neither side dresses first.
+  const queue = [];
+  for (let i = 0; i < Math.max(teamA.members.length, teamB.members.length); i++) {
+    if (teamA.members[i]) queue.push({ ...teamA.members[i], team: teamA });
+    if (teamB.members[i]) queue.push({ ...teamB.members[i], team: teamB });
+  }
   let equipSlot = 0;
   await Promise.all(Array.from({ length: Math.min(8, queue.length) }, async (_, w) => {
     await sleep(w * 120);
@@ -134,18 +139,23 @@ async function main() {
   }));
   console.log(`  … ${bots.length}/${allMembers.length} in world in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
 
-  console.log(`\n${bots.length} bots in world, armed. Starting battle in 3s...`);
-  await sleep(3000);
+  const dressMs = Math.min(30000, bots.length * 250 + 2500);
+  console.log(`
+${bots.length} bots in world. Equipping (~${(dressMs / 1000).toFixed(0)}s), then FIGHT...`);
+  await sleep(dressMs);
 
   // Enemies = only the OTHER team's bots that actually booted into this match.
   // Never anyone else — a human clan-mate, a GM, a bystander at the spawn.
+  const focusA = new Map(), focusB = new Map(); // per-team shared focus maps (spread attacks)
   const bootedA = new Set(bots.filter((b) => b.team === teamA).map((b) => b.name));
   const bootedB = new Set(bots.filter((b) => b.team === teamB).map((b) => b.name));
   bots.forEach(({ team, bot, cls }) => {
     const enemySet = team === teamA ? bootedB : bootedA;
     const isEnemy = (name) => enemySet.has(name);
-    const opts = { role: cls.role, skills: cls.skills };
-    if (match.llm) bot.llmBattle(isEnemy, opts);
+    const opts = { role: cls.role, skills: cls.skills, focus: team === teamA ? focusA : focusB };
+    const allySet = team === teamA ? bootedA : bootedB;
+    if (cls.role === "healer") bot.healerBattle((name) => allySet.has(name), opts);
+    else if (match.llm) bot.llmBattle(isEnemy, opts);
     else bot.autoBattle(isEnemy, opts);
   });
   console.log("FIGHT!");

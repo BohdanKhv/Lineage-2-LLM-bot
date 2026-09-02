@@ -79,7 +79,8 @@ function resetForBattle(reds, blues) {
     const y = c.cy + side * (ROW + Math.floor(i / 7) * 50);
     sql += `UPDATE characters SET x=${x}, y=${y}, z=${c.z} WHERE char_name='${n}';\n`;
   });
-  place(reds, -1); place(blues, +1);
+  const sw = process.env.L2_SWAP_SIDES ? -1 : 1; // diagnostic: swap which row each team spawns on
+  place(reds, -sw); place(blues, sw);
   execFileSync(MYSQL, ["-uroot", "-proot", "-D", "elmore", "-e", sql], { encoding: "utf8" });
   console.log(`spawning ${reds.length + blues.length} bots ${c.where} @ ${c.cx},${c.cy}`);
 }
@@ -138,23 +139,30 @@ async function main() {
   resetForBattle(reds, blues);
   const gear = gearMap();
   const jobs = [];
-  const push = (names, team) => names.forEach((n, i) => jobs.push({
-    acc: n.toLowerCase(), team, name: n,
-    role: COMP[i % COMP.length] || { role: "melee", name: "?" },
-  }));
-  push(reds, "red"); push(blues, "blue");
+  // Interleave the teams in boot order so neither side logs in / dresses first.
+  const mk = (n, i, team) => ({ acc: n.toLowerCase(), team, name: n, role: COMP[i % COMP.length] || { role: "melee", name: "?" } });
+  for (let i = 0; i < Math.max(reds.length, blues.length); i++) {
+    if (reds[i]) jobs.push(mk(reds[i], i, "red"));
+    if (blues[i]) jobs.push(mk(blues[i], i, "blue"));
+  }
   const bots = await bootAll(jobs, gear);
-  console.log(`\n${bots.length} bots in world, armed. Starting battle in 3s...`);
-  await new Promise((r) => setTimeout(r, 3000));
+  // Everyone must be dressed before the bell: equips are staggered 250ms per bot.
+  const dressMs = Math.min(30000, bots.length * 250 + 2500);
+  console.log(`
+${bots.length} bots in world. Equipping (~${(dressMs / 1000).toFixed(0)}s), then FIGHT...`);
+  await new Promise((r) => setTimeout(r, dressMs));
 
   // Red attacks Blue, Blue attacks Red — each with its class role.
   // L2_LLM=1 -> each bot is driven by the local LLM (focus-fire, retreat);
   // otherwise the simple scripted loop.
   const useLLM = !!process.env.L2_LLM;
+  // Per-team shared focus maps: spread attacks, don't all pile onto one victim.
+  const focusRed = new Map(), focusBlue = new Map();
   bots.forEach(({ team, bot, role }) => {
     const isEnemy = BOSS ? isPlayer : (team === "red" ? isBlue : isRed);
-    const opts = { role: role.role, skills: role.skills };
-    if (useLLM) bot.llmBattle(isEnemy, opts);
+    const opts = { role: role.role, skills: role.skills, focus: team === "red" ? focusRed : focusBlue };
+    if (role.role === "healer") bot.healerBattle(BOSS ? (n) => !isPlayer(n) : (team === "red" ? isRed : isBlue), opts);
+    else if (useLLM) bot.llmBattle(isEnemy, opts);
     else bot.autoBattle(isEnemy, opts);
   });
   console.log(
