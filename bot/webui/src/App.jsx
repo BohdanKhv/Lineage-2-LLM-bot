@@ -3,9 +3,11 @@ import Battle from "./pages/Battle.jsx";
 import Roster from "./pages/Roster.jsx";
 import Catalog from "./pages/Catalog.jsx";
 import Manage from "./pages/Manage.jsx";
+import Actions from "./pages/Actions.jsx";
 
 const TABS = [
   ["battle", "Battle"],
+  ["actions", "Actions"],
   ["roster", "Roster"],
   ["manage", "Manage"],
   ["catalog", "Catalog"],
@@ -28,6 +30,7 @@ export default function App() {
       </header>
 
       {tab === "battle" && <Battle notify={notify} />}
+      {tab === "actions" && <Actions notify={notify} />}
       {tab === "roster" && <Roster notify={notify} />}
       {tab === "manage" && <Manage notify={notify} />}
       {tab === "catalog" && <Catalog />}

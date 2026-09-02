@@ -30,13 +30,23 @@ function gearMap() {
   return map;
 }
 
-// "boss" -> all 14 bots gang up on YOU (any player that isn't a Red#/Blue# bot,
-// i.e. your GM char). Otherwise N-per-team Red vs Blue.
+// "boss" -> ALL bots gang up on YOU (any player that isn't a Red#/Blue# bot,
+// i.e. your GM char). Otherwise N-per-team Red vs Blue — N can exceed 7:
+// extra members (Red8+) reuse the 7 roster classes cyclically. Create more
+// characters on the Manage tab, provision, then `node battle.js 10`.
 const BOSS = process.argv[2] === "boss";
-const N = BOSS ? 7 : parseInt(process.argv[2] || "7", 10);
+const N = BOSS ? 999 : parseInt(process.argv[2] || "7", 10);
 const isRed = (name) => /^Red\d+$/.test(name);
 const isBlue = (name) => /^Blue\d+$/.test(name);
 const isPlayer = (name) => !/^(Red|Blue)\d+$/.test(name); // you / the GM
+
+// Existing team members, in numeric order (Red1, Red2, ... Red12).
+function teamChars(team) {
+  const out = execFileSync(MYSQL, ["-uroot", "-proot", "-D", "elmore", "-sN", "-e",
+    `SELECT char_name FROM characters WHERE char_name REGEXP '^${team}[0-9]+$'
+      ORDER BY CAST(SUBSTRING(char_name, ${team.length + 1}) AS UNSIGNED);`], { encoding: "utf8" });
+  return out.trim().split(/\r?\n/).filter(Boolean);
+}
 
 // Prep the roster for a fresh battle:
 //  - full HP,
@@ -46,38 +56,59 @@ const isPlayer = (name) => !/^(Red|Blue)\d+$/.test(name); // you / the GM
 //    the exact same coordinate — melee attacks whiff at distance 0. Red row and
 //    Blue row are ~55 apart (melee range) so front-liners connect immediately.
 const CX = 145200, CY = -68800, Z = -3746, GAP = 45, ROW = 55;
-function resetForBattle() {
-  let sql = `UPDATE characters SET curHp=99999, curMp=99999 WHERE account_name LIKE 'red%' OR account_name LIKE 'blue%';
+function resetForBattle(reds, blues) {
+  let sql = `UPDATE characters SET curHp=99999, curMp=99999, curCp=99999 WHERE account_name LIKE 'red%' OR account_name LIKE 'blue%';
      UPDATE items i JOIN characters c ON i.owner_id=c.charId SET i.loc='INVENTORY'
        WHERE (c.account_name LIKE 'red%' OR c.account_name LIKE 'blue%') AND i.loc='PAPERDOLL'
          AND (i.item_id IN (SELECT item_id FROM weapon) OR i.item_id IN (SELECT item_id FROM armor) OR i.item_id IN (17,1341,1342,1343,1344,1345));\n`;
-  for (let i = 1; i <= 7; i++) {
-    const x = CX + (i - 4) * GAP;
-    sql += `UPDATE characters SET x=${x}, y=${CY - ROW}, z=${Z} WHERE char_name='Red${i}';\n`;
-    sql += `UPDATE characters SET x=${x}, y=${CY + ROW}, z=${Z} WHERE char_name='Blue${i}';\n`;
-  }
+  // Facing rows, 7 per row; teams >7 stack extra rows further back.
+  const place = (names, side) => names.forEach((n, i) => {
+    const x = CX + ((i % 7) - 3) * GAP;
+    const y = CY + side * (ROW + Math.floor(i / 7) * 50);
+    sql += `UPDATE characters SET x=${x}, y=${y}, z=${Z} WHERE char_name='${n}';\n`;
+  });
+  place(reds, -1); place(blues, +1);
   execFileSync(MYSQL, ["-uroot", "-proot", "-D", "elmore", "-e", sql], { encoding: "utf8" });
 }
 
-async function main() {
-  resetForBattle();
-  const gear = gearMap();
+// Log the whole roster in CONCURRENTLY (a few at a time, lightly staggered) —
+// sequential 1.2s-per-bot boots made big rosters painfully slow. The login
+// server has flood protection disabled, so parallel handshakes are fine.
+const BOOT_CONCURRENCY = 8;
+async function bootAll(jobs, gear) {
+  const t0 = Date.now();
   const bots = [];
-  for (let i = 1; i <= N; i++) {
-    for (const team of ["red", "blue"]) {
-      const acc = `${team}${i}`;
-      const bot = new ArenaBot(acc, acc);
-      const role = COMP[i - 1] || { role: "melee", name: "?" };
+  const queue = jobs.map((j, i) => [i, j]);
+  await Promise.all(Array.from({ length: Math.min(BOOT_CONCURRENCY, queue.length) }, async (_, w) => {
+    await new Promise((r) => setTimeout(r, w * 120)); // stagger the first wave
+    while (queue.length) {
+      const [, j] = queue.shift();
+      const bot = new ArenaBot(j.acc, j.acc);
       try {
         await bot.enter();
-        const items = gear[acc] || [];
+        const items = gear[j.acc] || [];
         items.forEach((o, k) => setTimeout(() => bot.useItem(o), k * 150)); // equip full set in-game
-        bots.push({ acc, team, bot, role });
-        console.log(`  ✓ ${acc} — ${role.name} (${role.role}), ${items.length} items`);
-      } catch (e) { console.log(`  ✗ ${acc}: ${e}`); }
-      await new Promise((r) => setTimeout(r, 1200));
+        bots.push({ ...j, bot });
+        console.log(`  ✓ ${j.acc} — ${j.role.name} (${j.role.role}), ${items.length} items`);
+      } catch (e) { console.log(`  ✗ ${j.acc}: ${e}`); }
     }
-  }
+  }));
+  console.log(`  … ${bots.length}/${jobs.length} in world in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+  return bots;
+}
+
+async function main() {
+  const reds = teamChars("Red").slice(0, N);
+  const blues = teamChars("Blue").slice(0, N);
+  resetForBattle(reds, blues);
+  const gear = gearMap();
+  const jobs = [];
+  const push = (names, team) => names.forEach((n, i) => jobs.push({
+    acc: n.toLowerCase(), team, name: n,
+    role: COMP[i % COMP.length] || { role: "melee", name: "?" },
+  }));
+  push(reds, "red"); push(blues, "blue");
+  const bots = await bootAll(jobs, gear);
   console.log(`\n${bots.length} bots in world, armed. Starting battle in 3s...`);
   await new Promise((r) => setTimeout(r, 3000));
 

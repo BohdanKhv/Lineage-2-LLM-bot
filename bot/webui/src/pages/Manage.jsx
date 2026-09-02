@@ -87,6 +87,13 @@ export default function Manage({ notify }) {
       notify(msg); setSel(new Set()); refresh();
     } catch (e) { notify(e.message); }
   };
+  const toggleGm = async (c) => {
+    try {
+      await api.setGm(c.name, !c.gm);
+      notify(`${c.name}: GM ${c.gm ? "removed" : "granted"} — restart the gameserver${c.online ? " (and relog)" : ""} to apply`);
+      refresh();
+    } catch (e) { notify(e.message); }
+  };
   const restartGs = async () => {
     if (!window.confirm("Restart the gameserver? Everyone in-game (including you) will be disconnected for ~30-60s.")) return;
     try { await api.restartGameserver(); notify("Gameserver restarting — watch the Battle log for progress."); }
@@ -167,13 +174,19 @@ export default function Manage({ notify }) {
             <thead><tr>
               <th><input type="checkbox" checked={selNames.length === chars.length && chars.length > 0}
                 onChange={(e) => setSel(e.target.checked ? new Set(chars.map((c) => c.name)) : new Set())} /></th>
-              <th>Name</th><th>Account</th><th>Class</th><th>Lvl</th><th>Clan</th><th></th></tr></thead>
+              <th>Name</th><th>Account</th><th>Class</th><th>Lvl</th><th>Clan</th><th>GM</th><th></th></tr></thead>
             <tbody>{chars.map((c) => (
               <tr key={c.name}>
                 <td><input type="checkbox" checked={sel.has(c.name)} onChange={() => toggle(c.name)} /></td>
                 <td>{c.name}</td><td className="muted">{c.account}</td>
                 <td className="muted">{classMap[c.classId] || c.classId}</td><td>{c.level}</td>
                 <td className="muted">{c.clan || "—"}</td>
+                <td>
+                  {c.gm && <span className="pill on" style={{ marginRight: 6 }}>GM</span>}
+                  <button className="ghost" style={{ padding: "2px 8px", fontSize: 11 }} onClick={() => toggleGm(c)}>
+                    {c.gm ? "remove" : "make GM"}
+                  </button>
+                </td>
                 <td>{c.online ? <span className="pill on">online</span> : ""}</td>
               </tr>
             ))}</tbody>

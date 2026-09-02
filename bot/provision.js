@@ -2,6 +2,17 @@
 // Accounts auto-create on login; this creates one Human Fighter per account.
 const Client = require("./vendor/l2js-client/dist/Client").default;
 const L2Character = require("./vendor/l2js-client/dist/entities/L2Character").default;
+const { execFileSync } = require("child_process");
+
+// New characters start at level 80. The server re-derives level from exp at
+// login, so exp is what matters (4268429310 = known-good level-80 exp).
+const MYSQL = "C:\\Program Files\\MariaDB 10.6\\bin\\mysql.exe";
+const L80 = { level: 80, exp: "4268429310" };
+function setLevel80(charName) {
+  execFileSync(MYSQL, ["-uroot", "-proot", "-D", "elmore", "-e",
+    `UPDATE characters SET level=${L80.level}, exp=${L80.exp}, curHp=99999, curMp=99999, curCp=99999 WHERE char_name='${charName.replace(/'/g, "")}';`],
+    { encoding: "utf8" });
+}
 
 // Closing a socket rejects the in-flight recv(); that's benign here.
 process.on("unhandledRejection", (reason) => {
@@ -68,8 +79,13 @@ async function main() {
   console.log(`provisioning ${jobs.length} character(s): ${jobs.map((j) => j.charName).join(", ")}`);
   for (const j of jobs) {
     const r = await provision(j.account, j.charName);
-    console.log(`${r.ok ? "OK " : "FAIL"} ${r.account} / ${r.charName}  (${r.why})`);
-    await new Promise((res) => setTimeout(res, 1500)); // spacing between logins
+    let lvl = "";
+    if (r.ok && r.why === "created") {
+      await new Promise((res) => setTimeout(res, 1200)); // let the server persist the new char first
+      try { setLevel80(j.charName); lvl = " → level 80"; } catch (e) { lvl = " (level-80 update failed: " + e.message + ")"; }
+    }
+    console.log(`${r.ok ? "OK " : "FAIL"} ${r.account} / ${r.charName}  (${r.why})${lvl}`);
+    await new Promise((res) => setTimeout(res, 800)); // spacing between logins
   }
   console.log("provisioning complete");
   process.exit(0);

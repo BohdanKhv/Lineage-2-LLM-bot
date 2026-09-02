@@ -118,7 +118,7 @@ export default function Roster({ notify }) {
     <>
       <div className="panel">
         <div className="row spread">
-          <h2>Roster <span className="muted" style={{ fontSize: 13 }}>— 7 classes, mirrored on Red &amp; Blue</span></h2>
+          <h2>Roster <span className="muted" style={{ fontSize: 13 }}>— {comp.length} classes, cycled across every Red &amp; Blue member (Red{comp.length + 1} = slot 1, …)</span></h2>
           <div className="row">
             <span className={"pill " + (online ? "on" : "off")}>{online}/{status.length || 14} online</span>
             <button onClick={save}>Save</button>
@@ -138,10 +138,21 @@ export default function Roster({ notify }) {
                   update(i, { classId: cid, name: cl ? cl.name.replace(/\s/g, "") : s.name }); }}>
                 {classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
-              <div className="row" style={{ gap: 4, marginTop: 6 }}>
-                <input style={{ width: 56 }} type="number" title="weapon enchant"
-                  value={s.ench ?? 0} onChange={(e) => update(i, { ench: +e.target.value })} />
-                <span className="muted" style={{ fontSize: 11 }}>ench</span>
+              <div className="row" style={{ gap: 4, marginTop: 6, flexWrap: "nowrap" }} title="weapon enchant — each character rolls a random value in this range">
+                <span className="muted" style={{ fontSize: 11, width: 46 }}>wpn +</span>
+                <input style={{ width: 48 }} type="number" min={0} value={s.ench ?? 0}
+                  onChange={(e) => update(i, { ench: Math.max(0, +e.target.value || 0) })} />
+                <span className="muted" style={{ fontSize: 11 }}>–</span>
+                <input style={{ width: 48 }} type="number" min={0} value={s.enchMax ?? s.ench ?? 0}
+                  onChange={(e) => update(i, { enchMax: Math.max(0, +e.target.value || 0) })} />
+              </div>
+              <div className="row" style={{ gap: 4, marginTop: 4, flexWrap: "nowrap" }} title="armor enchant — each piece rolls a random value in this range">
+                <span className="muted" style={{ fontSize: 11, width: 46 }}>armor +</span>
+                <input style={{ width: 48 }} type="number" min={0} value={s.armorEnch ?? 0}
+                  onChange={(e) => update(i, { armorEnch: Math.max(0, +e.target.value || 0) })} />
+                <span className="muted" style={{ fontSize: 11 }}>–</span>
+                <input style={{ width: 48 }} type="number" min={0} value={s.armorEnchMax ?? s.armorEnch ?? 0}
+                  onChange={(e) => update(i, { armorEnchMax: Math.max(0, +e.target.value || 0) })} />
               </div>
             </div>
             <div>

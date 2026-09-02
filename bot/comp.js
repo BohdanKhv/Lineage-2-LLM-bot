@@ -37,6 +37,24 @@ const DEFAULT_COMP = [
   // Mystic Muse — ice/water nuker (Spellsinger endgame)
   { slot: 7, classId: 103, name: "MysticMuse",    role: "mage",   weapon: 6579, ench: 10, armor: "robe",
     skills: [1235, 1231, 1236] },           // Hydro Blast, Aura Flare, Frost Bolt
+  // Titan — two-handed crusher (Destroyer endgame)
+  { slot: 8, classId: 113, name: "Titan",         role: "melee",  weapon: 6369, ench: 12, armor: "heavy",
+    skills: [315, 362, 260, 190, 36] },     // Crush of Doom, Armor Crush, Hammer Crush, Fatal Strike, Whirlwind
+  // Grand Khavatari — fist fighter (Tyrant endgame); Force skills build off Focused Force
+  { slot: 9, classId: 114, name: "GrandKhavatari", role: "melee", weapon: 6371, ench: 12, armor: "light",
+    skills: [54, 17, 35, 284, 281, 120] },  // Force Blaster, Force Buster, Force Storm, Hurricane Assault, Soul Breaker, Stunning Fist
+  // Dominator — orc caster (Overlord endgame): drains + seals (debuffs)
+  { slot: 10, classId: 115, name: "Dominator",    role: "mage",   weapon: 6366, ench: 10, armor: "robe",
+    skills: [1416, 1245, 1090, 1104, 1246, 1099] }, // Pa'agrio's Fist, Steal Essence, Life Drain, Seal of Winter, Seal of Silence, Seal of Slow
+  // Soultaker — Necromancer endgame: dark nukes + curses
+  { slot: 11, classId: 95, name: "Soultaker",     role: "mage",   weapon: 6579, ench: 10, armor: "robe",
+    skills: [1148, 1234, 1159, 1170, 1172, 1069] }, // Death Spike, Vampiric Claw, Curse Death Link, Anchor, Aura Burn, Sleep
+  // Cardinal — Bishop endgame: not a nuker; mana burn + light nukes + CC
+  { slot: 12, classId: 97, name: "Cardinal",      role: "mage",   weapon: 6579, ench: 10, armor: "robe",
+    skills: [1399, 1147, 1184, 1177, 1069] }, // Mana Storm, Vampiric Touch, Ice Bolt, Wind Strike, Sleep
+  // Storm Screamer — dark-elf nuker (Spellhowler endgame)
+  { slot: 13, classId: 110, name: "StormScreamer", role: "mage",  weapon: 6579, ench: 10, armor: "robe",
+    skills: [1239, 1234, 1267, 1148, 1417] }, // Hurricane, Vampiric Claw, Shadow Flare, Death Spike, Aura Flash
 ];
 
 // The team composition can be overridden by the web UI, which writes roster.json.

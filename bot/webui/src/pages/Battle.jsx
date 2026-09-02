@@ -18,7 +18,18 @@ export default function Battle({ notify }) {
   const [score, setScore] = useState(null);
   const [bots, setBots] = useState([]);
   const [cmd, setCmd] = useState("");
+  const [online, setOnline] = useState({ n: 0, total: 0 });
   const logRef = useRef(null);
+
+  // Live "how many are logged in" — polled from the DB's online flags.
+  useEffect(() => {
+    const tick = () => api.rosterStatus()
+      .then((rows) => setOnline({ n: rows.filter((r) => r.online).length, total: rows.length }))
+      .catch(() => {});
+    tick();
+    const t = setInterval(tick, 3000);
+    return () => clearInterval(t);
+  }, []);
   // custom-teams / clan-vs-clan config
   const [chars, setChars] = useState([]);
   const [assign, setAssign] = useState({}); // charName -> "a" | "b"
@@ -85,7 +96,10 @@ export default function Battle({ notify }) {
       <div className="panel">
         <div className="row spread">
           <h2>Battle</h2>
-          <span className={"pill " + (running ? "on" : "off")}>{running ? `running: ${running}` : "idle"}</span>
+          <div className="row">
+            <span className={"pill " + (online.n ? "on" : "off")}>🟢 {online.n}/{online.total} logged in</span>
+            <span className={"pill " + (running ? "on" : "off")}>{running ? `running: ${running}` : "idle"}</span>
+          </div>
         </div>
 
         <div className="row" style={{ marginTop: 14 }}>
@@ -138,9 +152,11 @@ export default function Battle({ notify }) {
           {mode === "team" && (
             <label className="row" style={{ gap: 8 }}>
               Team size
-              <select value={size} onChange={(e) => setSize(+e.target.value)}>
-                {[1, 2, 3, 4, 5, 6, 7].map((n) => <option key={n} value={n}>{n} v {n}</option>)}
-              </select>
+              <input type="number" min={1} max={50} value={size} style={{ width: 70 }}
+                onChange={(e) => setSize(Math.max(1, Math.min(50, +e.target.value || 1)))} />
+              <span className="muted" style={{ fontSize: 12 }}>
+                per team — beyond 7, create characters on Manage &amp; provision; extras reuse the roster classes
+              </span>
             </label>
           )}
           {mode !== "commander" && (
@@ -171,6 +187,9 @@ export default function Battle({ notify }) {
         )}
 
         <p className="muted" style={{ marginTop: 10, fontSize: 12 }}>
+          Squad-wide actions (restore, respawn, level 80, summon, log in all…) live on the <b>Actions</b> tab.
+        </p>
+        <p className="muted" style={{ marginTop: 4, fontSize: 12 }}>
           Provision the roster first (Roster tab) while bots are logged out. Boss/Commander: stand at the arena on your GM char.
         </p>
       </div>

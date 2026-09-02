@@ -54,14 +54,29 @@ function parseCommand(msg, speaker) {
   }
   const sm = m.match(/^(?:summon|goto|go to|come to)\s+(.+)$/);
   if (sm) { command.targetName = null; command.summon = { name: sm[1].trim(), t: Date.now() }; return `summoning to ${sm[1].trim()}`; }
+  // restore -> full HP/MP/CP in place (relog cycle, revives the dead);
+  // respawn -> same, plus regroup at the arena spot.
+  if (["restore", "heal", "full hp"].includes(m)) { command.targetName = null; command.reset = { mode: "restore", t: Date.now() }; return "restoring HP/MP/CP"; }
+  if (["respawn", "reset", "arena"].includes(m)) { command.targetName = null; command.reset = { mode: "respawn", t: Date.now() }; return "respawning at the arena"; }
+  // level / level 80 -> everyone to level 80 (relog cycle; server derives level from exp)
+  if (/^(level|lvl)(\s*80)?$/.test(m)) { command.reset = { mode: "level", t: Date.now() }; return "setting everyone to level 80"; }
   return null;
+}
+
+// Every existing member of a team, in numeric order — teams can exceed 7
+// (Red8+ reuse the roster classes cyclically).
+function teamChars(team) {
+  const out = shN(`SELECT char_name FROM characters WHERE char_name REGEXP '^${team}[0-9]+$'
+    ORDER BY CAST(SUBSTRING(char_name, ${team.length + 1}) AS UNSIGNED);`);
+  return out.trim().split(/\r?\n/).filter(Boolean);
 }
 
 async function main() {
   const arg = process.argv[2];
-  const teams = arg === "red" ? ["red"] : arg === "blue" ? ["blue"] : ["red", "blue"];
+  const teams = arg === "red" ? ["Red"] : arg === "blue" ? ["Blue"] : ["Red", "Blue"];
   const roster = [];
-  teams.forEach((t) => COMP.forEach((c) => roster.push({ acc: `${t}${c.slot}`, name: `${t[0].toUpperCase()}${t.slice(1)}${c.slot}`, role: c })));
+  teams.forEach((t) => teamChars(t).forEach((n, i) =>
+    roster.push({ acc: n.toLowerCase(), name: n, role: COMP[i % COMP.length] })));
 
   prep(roster.map((r) => r.name));
   const gear = gearMap(roster.map((r) => r.acc));
@@ -78,16 +93,23 @@ async function main() {
     bot.commanderBattle(() => command.targetName, { role: role.role, skills: role.skills });
   };
 
-  for (const r of roster) {
-    const bot = new ArenaBot(r.acc, r.acc);
-    try {
-      await bot.enter();
-      (gear[r.acc] || []).forEach((o, k) => setTimeout(() => bot.useItem(o), k * 150));
-      bots.push({ bot, role: r.role, acc: r.acc, name: r.name, team: /^red/i.test(r.name) ? "red" : "blue" });
-      console.log(`  ✓ ${r.name} (${r.role.name})`);
-    } catch (e) { console.log(`  ✗ ${r.acc}: ${e}`); }
-    await new Promise((res) => setTimeout(res, 1100));
-  }
+  // Concurrent boot (see battle.js) — sequential logins made big rosters slow.
+  const t0 = Date.now();
+  const queue = [...roster];
+  await Promise.all(Array.from({ length: Math.min(8, queue.length) }, async (_, w) => {
+    await new Promise((r) => setTimeout(r, w * 120));
+    while (queue.length) {
+      const r = queue.shift();
+      const bot = new ArenaBot(r.acc, r.acc);
+      try {
+        await bot.enter();
+        (gear[r.acc] || []).forEach((o, k) => setTimeout(() => bot.useItem(o), k * 150));
+        bots.push({ bot, role: r.role, acc: r.acc, name: r.name, team: /^red/i.test(r.name) ? "red" : "blue" });
+        console.log(`  ✓ ${r.name} (${r.role.name})`);
+      } catch (e) { console.log(`  ✗ ${r.acc}: ${e}`); }
+    }
+  }));
+  console.log(`  … ${bots.length}/${roster.length} in world in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
   bots.forEach((b, idx) => wire(b.bot, b.role, idx === 0));
 
   // Summon: move every living bot into a loose ring around the target player.
@@ -96,6 +118,35 @@ async function main() {
   // since login — walk near a bot and use in-game chat for exact regroups).
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const WALK_RANGE = 2500; // walk if this close; otherwise relog-teleport (instant)
+
+  // Login raced against a timeout + retried: an account the server hasn't freed
+  // yet (right after a mass logout) makes enter() hang forever otherwise.
+  const enterWithRetry = async (acc, tries = 4) => {
+    for (let t = 1; ; t++) {
+      const nb = new ArenaBot(acc, acc);
+      try {
+        await Promise.race([nb.enter(), sleep(8000).then(() => { throw new Error("timeout"); })]);
+        return nb;
+      } catch (err) {
+        try { nb.disconnect(); } catch (e2) { /* noop */ }
+        if (t >= tries) throw err;
+        await sleep(1500 * t);
+      }
+    }
+  };
+  // Concurrently log a set of [entry, index] pairs back in and rewire them.
+  // Gear stays equipped across a relog, so no re-equip is needed.
+  async function reloginAll(pairs) {
+    const queue = [...pairs];
+    await Promise.all(Array.from({ length: Math.min(8, queue.length) }, async (_, w) => {
+      await sleep(w * 120);
+      while (queue.length) {
+        const [e, i] = queue.shift();
+        try { const nb = await enterWithRetry(e.acc); wire(nb, e.role, i === 0); e.bot = nb; }
+        catch (err) { console.log(`  ✗ ${e.name}: ${err.message || err}`); }
+      }
+    }));
+  }
   async function doSummon(name) {
     let pos = null;
     for (const { bot } of bots) {
@@ -112,39 +163,76 @@ async function main() {
     if (!pos) { console.log(`summon: no character named "${name}"`); return; }
     console.log(`summoning to ${name} @ ${Math.round(pos.x)},${Math.round(pos.y)} [${src}]`);
 
-    // Ring spot per bot so nobody stacks on one coordinate (melee whiffs at distance 0).
+    // Concentric rings, 10 per ring, ~50 units apart — nobody stacks on one
+    // coordinate (melee whiffs at distance 0), even with 40 bots.
     const spot = (i) => {
-      const a = (i / bots.length) * Math.PI * 2, r = 70 + (i % 3) * 40;
+      const ring = Math.floor(i / 10), r = 80 + ring * 55;
+      const a = ((i % 10) / 10) * Math.PI * 2 + ring * 0.3;
       return [Math.round(pos.x + Math.cos(a) * r), Math.round(pos.y + Math.sin(a) * r), pos.z];
     };
-    for (let i = 0; i < bots.length; i++) {
-      const entry = bots[i];
-      if (entry.bot.isDead()) continue;
+    // Near + alive → walk. Far or dead → batched relog-teleport (arrives alive).
+    const far = [];
+    bots.forEach((entry, i) => {
       const [x, y, z] = spot(i);
       let d = Infinity;
       try { const me = entry.bot.getState().self; d = Math.hypot(me.x - pos.x, me.y - pos.y); } catch (e) { /* keep Infinity */ }
-      if (d <= WALK_RANGE) { entry.bot.moveTo(x, y, z); continue; }
-      // Too far to walk: relog-teleport — disconnect (server saves), set DB coords, log back in.
-      try {
-        entry.bot.disconnect();
-        await sleep(900); // let the server persist the logout before we overwrite position
-        sh(`UPDATE characters SET x=${x}, y=${y}, z=${z} WHERE char_name='${entry.name.replace(/'/g, "")}';`);
-        const nb = new ArenaBot(entry.acc, entry.acc);
-        await nb.enter();
-        wire(nb, entry.role, i === 0);
-        entry.bot = nb;
-        console.log(`  ↯ ${entry.name} teleported (relog)`);
-      } catch (e) { console.log(`  ✗ ${entry.name} teleport failed: ${e}`); }
-      await sleep(700); // stagger logins
+      if (!entry.bot.isDead() && d <= WALK_RANGE) entry.bot.moveTo(x, y, z);
+      else far.push([entry, i, x, y, z]);
+    });
+    if (far.length) {
+      const t0 = Date.now();
+      console.log(`  ↯ teleporting ${far.length} bots (batched relog)...`);
+      far.forEach(([e]) => { try { e.bot.disconnect(); } catch (err) { /* already gone */ } });
+      await sleep(2500); // mass logout needs a moment to persist + free the accounts
+      // One bulk write: destination + full HP/MP/CP so dead bots arrive alive.
+      const sql = far.map(([e, , x, y, z]) =>
+        `UPDATE characters SET x=${x}, y=${y}, z=${z}, curHp=99999, curMp=99999, curCp=99999 WHERE char_name='${e.name.replace(/'/g, "")}';`
+      ).join("\n");
+      sh(sql);
+      await reloginAll(far.map(([e, i]) => [e, i]));
+      console.log(`  ↯ ${far.length} teleported in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
     }
-    console.log(`summon complete — ${bots.length} bots at ${name}`);
+    console.log(`summon complete — ${bots.length} bots at ${name} (${bots.length - far.length} walked, ${far.length} teleported)`);
   }
-  let lastSummonT = 0, summoning = false;
+  // restore/respawn: relog every bot — the ONLY reliable way to refill a LIVE
+  // character (DB writes are overwritten by the server's in-memory state) and
+  // it revives dead bots too. respawn also regroups at the arena cluster.
+  // BATCHED for speed: disconnect ALL at once, one bulk SQL, then log back in
+  // concurrently — ~5-8s for the whole squad instead of ~2s per bot.
+  async function doReset(mode) {
+    const t0 = Date.now();
+    console.log(`${mode}: relogging ${bots.length} bots (batched)...`);
+    bots.forEach((e) => { try { e.bot.disconnect(); } catch (err) { /* already gone */ } });
+    await sleep(2500); // a mass logout takes the server a moment to persist + free the accounts
+    // One bulk UPDATE: full HP/MP/CP for all, + arena-cluster coords for respawn.
+    const names = bots.map((e) => `'${e.name.replace(/'/g, "")}'`).join(",");
+    // level: the server re-derives level from exp at login, so exp is what matters
+    // (4268429310 is a known-good level-80 value — it's what the Admin char has).
+    const lvl = mode === "level" ? ", level=80, exp=4268429310" : "";
+    let sql = `UPDATE characters SET curHp=99999, curMp=99999, curCp=99999${lvl} WHERE char_name IN (${names});`;
+    if (mode === "respawn") {
+      bots.forEach((e, i) => {
+        const x = 145200 + ((i % 7) - 3) * 45, y = -68800 + (Math.floor(i / 7) - 1) * 45;
+        sql += `\nUPDATE characters SET x=${x}, y=${y}, z=-3746 WHERE char_name='${e.name.replace(/'/g, "")}';`;
+      });
+    }
+    sh(sql);
+    await reloginAll(bots.map((e, i) => [e, i]));
+    console.log(`${mode} complete — ${bots.length} bots ${mode === "level" ? "at level 80," : "at"} full HP/MP/CP in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+  }
+
+  let lastSummonT = 0, lastResetT = 0, busyCycle = false;
   setInterval(() => {
     const s = command.summon;
-    if (s && s.t > lastSummonT && !summoning) {
-      lastSummonT = s.t; command.summon = null; summoning = true;
-      doSummon(s.name).finally(() => { summoning = false; });
+    if (s && s.t > lastSummonT && !busyCycle) {
+      lastSummonT = s.t; command.summon = null; busyCycle = true;
+      doSummon(s.name).finally(() => { busyCycle = false; });
+      return;
+    }
+    const r = command.reset;
+    if (r && r.t > lastResetT && !busyCycle) {
+      lastResetT = r.t; command.reset = null; busyCycle = true;
+      doReset(r.mode).finally(() => { busyCycle = false; });
     }
   }, 400);
 
@@ -168,7 +256,7 @@ async function main() {
     console.log(`[${new Date().toLocaleTimeString()}] focus: ${command.targetName || "(none)"}  ·  ${bots.filter(({ bot }) => !bot.isDead()).length}/${bots.length} up`);
   }, 3000);
 
-  console.log(`\n${bots.length} bots standing by. In game chat: "kill <name>", "attack me", "summon" / "summon <name>", or "stop" — or use the web command box. Ctrl+C to log out.`);
+  console.log(`\n${bots.length} bots standing by. In game chat: "kill <name>", "attack me", "summon" / "summon <name>", "restore", "respawn", or "stop" — or use the web command box. Ctrl+C to log out.`);
   const shutdown = () => { bots.forEach(({ bot }) => bot.disconnect()); setTimeout(() => process.exit(0), 500); };
   process.on("SIGINT", shutdown);
 }

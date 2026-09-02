@@ -300,7 +300,7 @@ app.post("/api/battle/start", async (req, res) => {
       }, null, 2));
       args = ["arena.js"];
     }
-    else args = ["battle.js", String(Math.max(1, Math.min(7, parseInt(size, 10) || 7)))];
+    else args = ["battle.js", String(Math.max(1, Math.min(50, parseInt(size, 10) || 7)))];
     const r = runChild(kind, args, llm ? { L2_LLM: "1" } : {});
     res.status(r.ok ? 200 : 409).json(r);
   } catch (e) { err(res, e); }
@@ -334,7 +334,8 @@ app.get("/api/accounts", async (req, res) => {
         ${all ? "" : "WHERE c.account_name LIKE 'red%' OR c.account_name LIKE 'blue%'"}
         ORDER BY c.account_name, c.char_name`
     );
-    res.json(rows);
+    const gms = gmCharIds();
+    res.json(rows.map((r) => ({ ...r, gm: gms.has(Number(r.id)) })));
   } catch (e) { err(res, e); }
 });
 
@@ -451,6 +452,96 @@ app.post("/api/clans/assign", async (req, res) => {
       ok: true, assigned: [...members, ...leaders], skippedOnline: online, skippedLeaders: blockedLeaders,
       needsRestart: true,
     });
+  } catch (e) { err(res, e); }
+});
+
+// ----------------------------------------------------- squad quick actions ---
+// Restore HP/MP/CP, stop the fight, respawn everyone at the arena spot.
+// With commander running these go to its stdin (live relog cycle — the only
+// way to affect ONLINE characters, whose DB rows the server overwrites).
+// Otherwise they write the DB directly (bots offline -> applies on next login).
+const ARENA = { cx: 145200, cy: -68800, z: -3746 };
+async function squadDbSql(mode) {
+  // level 80: the server re-derives level from exp at login; 4268429310 is a
+  // known-good level-80 exp (the Admin char's).
+  const lvl = mode === "level" ? ", level=80, exp=4268429310" : "";
+  let sql = `UPDATE characters SET curHp=99999, curMp=99999, curCp=99999${lvl} WHERE account_name LIKE 'red%' OR account_name LIKE 'blue%';\n`;
+  if (mode === "respawn") {
+    // Every Red#/Blue# character (teams can be any size), 7 per row.
+    const rows = await q("SELECT char_name AS n FROM characters WHERE char_name REGEXP '^(Red|Blue)[0-9]+$' ORDER BY char_name");
+    rows.forEach(({ n }, i) => {
+      const x = ARENA.cx + ((i % 7) - 3) * 45, y = ARENA.cy + (Math.floor(i / 7) - 3) * 45;
+      sql += `UPDATE characters SET x=${x}, y=${y}, z=${ARENA.z} WHERE char_name='${n}';\n`;
+    });
+  }
+  return sql;
+}
+app.post("/api/squad/:action(restore|respawn|stopfight|level)", async (req, res) => {
+  const action = req.params.action;
+  try {
+    if (childKind === "commander" && child) {
+      child.stdin.write((action === "stopfight" ? "stop" : action) + "\n");
+      return res.json({ ok: true, via: "commander", note: action === "stopfight" ? "standing down" : "batched relog — whole squad in a few seconds, watch the log" });
+    }
+    if (action === "stopfight") {
+      if (child) { try { child.kill(); } catch (e) { /* noop */ } return res.json({ ok: true, via: "kill", note: "battle process stopped" }); }
+      return res.json({ ok: true, via: "noop", note: "nothing running" });
+    }
+    for (const stmt of (await squadDbSql(action)).split(/;\s*\n/).map((s) => s.trim()).filter(Boolean)) await q(stmt);
+    res.json({ ok: true, via: "db", note: "applied in DB — takes effect when the bots log in" });
+  } catch (e) { err(res, e); }
+});
+
+// ------------------------------------------------------------- GM rights ----
+// This pack grants GM per CHARACTER: game/config/administration/gmaccess/*.cfg
+// (CharId + rights + command whitelist, loaded at gameserver BOOT) plus the
+// account's accessLevel. Making a GM clones ADMIN.cfg (root rights) with the
+// CharId swapped; removing deletes that cfg and resets accessLevel.
+const GM_DIR = "d:\\l2 project\\elmore\\game\\config\\administration\\gmaccess";
+const GM_TEMPLATE = path.join(GM_DIR, "ADMIN.cfg");
+function gmCfgs() {
+  try {
+    return fs.readdirSync(GM_DIR).filter((f) => /\.cfg$/i.test(f)).map((f) => {
+      const m = fs.readFileSync(path.join(GM_DIR, f), "utf8").match(/^\s*CharId\s*=\s*(\d+)/m);
+      return { file: f, charId: m ? Number(m[1]) : null };
+    });
+  } catch (e) { return []; }
+}
+function gmCharIds() { return new Set(gmCfgs().map((c) => c.charId).filter(Boolean)); }
+
+app.get("/api/gm", async (_req, res) => {
+  try {
+    const cfgs = gmCfgs().filter((c) => c.charId);
+    if (!cfgs.length) return res.json([]);
+    const rows = await q(`SELECT charId AS id, char_name AS name, account_name AS account, online
+                            FROM characters WHERE charId IN (${cfgs.map((c) => c.charId).join(",")})`);
+    res.json(cfgs.map((c) => ({ ...c, ...(rows.find((r) => Number(r.id) === c.charId) || {}) })));
+  } catch (e) { err(res, e); }
+});
+
+// { charName, enable: true|false }
+app.post("/api/gm", async (req, res) => {
+  const { charName, enable = true } = req.body || {};
+  if (!charName) return res.status(400).json({ error: "charName required" });
+  try {
+    const [c] = await q("SELECT charId AS id, char_name AS name, account_name AS account, online FROM characters WHERE char_name = :n", { n: charName });
+    if (!c) return res.status(404).json({ error: `no character named ${charName}` });
+    const id = Number(c.id);
+    const existing = gmCfgs().filter((g) => g.charId === id);
+    if (enable) {
+      if (!existing.length) {
+        const cfg = fs.readFileSync(GM_TEMPLATE, "utf8").replace(/^(\s*CharId\s*=\s*)\d+/m, `$1${id}`);
+        fs.writeFileSync(path.join(GM_DIR, `${c.name.replace(/[^A-Za-z0-9_]/g, "")}.cfg`), cfg);
+      }
+      await q("UPDATE accounts SET accessLevel = 100 WHERE login = :a", { a: c.account });
+    } else {
+      // Never delete the root template itself.
+      const deletable = existing.filter((g) => g.file.toUpperCase() !== "ADMIN.CFG");
+      if (existing.length && !deletable.length) return res.status(400).json({ error: `${c.name} is the root admin (ADMIN.cfg template) — not removable here` });
+      deletable.forEach((g) => { try { fs.unlinkSync(path.join(GM_DIR, g.file)); } catch (e) { /* noop */ } });
+      await q("UPDATE accounts SET accessLevel = 0 WHERE login = :a", { a: c.account });
+    }
+    res.json({ ok: true, charName: c.name, gm: !!enable, needsRestart: true, online: !!c.online });
   } catch (e) { err(res, e); }
 });
 

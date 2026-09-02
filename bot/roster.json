@@ -5,7 +5,7 @@
     "name": "Duelist",
     "role": "melee",
     "weapon": 6580,
-    "ench": 15,
+    "ench": 4,
     "armor": "heavy",
     "skills": [
       1,
@@ -25,14 +25,17 @@
       6378,
       6375,
       6376
-    ]
+    ],
+    "enchMax": 20,
+    "armorEnch": 8,
+    "armorEnchMax": 20
   },
   {
     "slot": 2,
     "classId": 89,
     "name": "Dreadnought",
     "role": "melee",
-    "weapon": 6370,
+    "weapon": "6599",
     "ench": 8,
     "armor": "heavy",
     "skills": [
@@ -50,14 +53,18 @@
       2419,
       5774,
       5786
-    ]
+    ],
+    "enchMax": 20,
+    "armorEnchMax": 20,
+    "weaponName": "Saint Spear - Health",
+    "weaponGrade": "s"
   },
   {
     "slot": 3,
     "classId": 90,
     "name": "PhoenixKnight",
     "role": "melee",
-    "weapon": 6580,
+    "weapon": "6582",
     "ench": 8,
     "armor": "heavy",
     "skills": [
@@ -75,7 +82,11 @@
       6378,
       6375,
       6376
-    ]
+    ],
+    "enchMax": 20,
+    "armorEnchMax": 20,
+    "weaponName": "Forgotten Blade - Health",
+    "weaponGrade": "s"
   },
   {
     "slot": 4,
@@ -102,7 +113,9 @@
       6381
     ],
     "weaponName": "Draconic Bow - Focus",
-    "weaponGrade": "s"
+    "weaponGrade": "s",
+    "enchMax": 20,
+    "armorEnchMax": 20
   },
   {
     "slot": 5,
@@ -129,7 +142,9 @@
       6381
     ],
     "weaponName": "Angel Slayer - Haste",
-    "weaponGrade": "s"
+    "weaponGrade": "s",
+    "enchMax": 27,
+    "armorEnchMax": 20
   },
   {
     "slot": 6,
@@ -155,14 +170,16 @@
       5779
     ],
     "weaponName": "Arcana Mace - Acumen",
-    "weaponGrade": "s"
+    "weaponGrade": "s",
+    "enchMax": 28,
+    "armorEnchMax": 20
   },
   {
     "slot": 7,
     "classId": 103,
     "name": "MysticMuse",
     "role": "melee",
-    "weapon": "6579",
+    "weapon": "5643",
     "ench": 10,
     "armor": "robe",
     "skills": [
@@ -180,7 +197,131 @@
       5767,
       5779
     ],
-    "weaponName": "Arcana Mace",
+    "weaponName": "Sword of Miracles - Acumen",
+    "weaponGrade": "a",
+    "armorEnchMax": 20,
+    "enchMax": 30
+  },
+  {
+    "slot": 8,
+    "classId": 113,
+    "name": "Titan",
+    "role": "melee",
+    "weapon": "6605",
+    "ench": 12,
+    "armor": "heavy",
+    "skills": [
+      315,
+      362,
+      260,
+      190,
+      36
+    ],
+    "enchMax": 212,
+    "armorEnchMax": 20,
+    "weaponName": "Heavens Divider - Haste",
+    "weaponGrade": "s"
+  },
+  {
+    "slot": 9,
+    "classId": 114,
+    "name": "GrandKhavatari",
+    "role": "melee",
+    "weapon": "6602",
+    "ench": 12,
+    "armor": "light",
+    "skills": [
+      54,
+      17,
+      35,
+      284,
+      281,
+      120
+    ],
+    "armorEnchMax": 20,
+    "weaponName": "Demon Splinter - Focus",
+    "weaponGrade": "s"
+  },
+  {
+    "slot": 10,
+    "classId": 115,
+    "name": "Dominator",
+    "role": "melee",
+    "weapon": "6608",
+    "ench": 10,
+    "armor": "robe",
+    "skills": [
+      1416,
+      1245,
+      1090,
+      1104,
+      1246,
+      1099
+    ],
+    "enchMax": 30,
+    "armorEnchMax": 20,
+    "weaponName": "Arcana Mace - Acumen",
+    "weaponGrade": "s"
+  },
+  {
+    "slot": 11,
+    "classId": 95,
+    "name": "Soultaker",
+    "role": "melee",
+    "weapon": "6608",
+    "ench": 10,
+    "armor": "robe",
+    "skills": [
+      1148,
+      1234,
+      1159,
+      1170,
+      1172,
+      1069
+    ],
+    "enchMax": 20,
+    "armorEnchMax": 20,
+    "weaponName": "Arcana Mace - Acumen",
+    "weaponGrade": "s"
+  },
+  {
+    "slot": 12,
+    "classId": 97,
+    "name": "Cardinal",
+    "role": "melee",
+    "weapon": "6608",
+    "ench": 10,
+    "armor": "robe",
+    "skills": [
+      1399,
+      1147,
+      1184,
+      1177,
+      1069
+    ],
+    "enchMax": 20,
+    "armorEnchMax": 20,
+    "weaponName": "Arcana Mace - Acumen",
+    "weaponGrade": "s"
+  },
+  {
+    "slot": 13,
+    "classId": 110,
+    "name": "StormScreamer",
+    "role": "melee",
+    "weapon": "6608",
+    "ench": 10,
+    "armor": "robe",
+    "skills": [
+      1239,
+      1234,
+      1267,
+      1148,
+      1417
+    ],
+    "armorEnchMax": 20,
+    "enchMax": 30,
+    "weaponName": "Arcana Mace - Acumen",
     "weaponGrade": "s"
   }
 ]

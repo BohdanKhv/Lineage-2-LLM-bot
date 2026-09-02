@@ -6,24 +6,42 @@ const { COMP, ARMOR, JEWELS, ARROWS } = require("./comp");
 const MYSQL = "C:\\Program Files\\MariaDB 10.6\\bin\\mysql.exe";
 const q = (sql) => execFileSync(MYSQL, ["-uroot", "-proot", "-D", "elmore", "-sN", "-e", sql], { encoding: "utf8" });
 
-const LEVEL = 78, EXP = "1500000000";
+// The server re-derives level from exp at login (1.5B exp silently gave 77, not
+// 78). 4268429310 is a known-good level-80 exp — the Admin char's value.
+const LEVEL = 80, EXP = "4268429310";
 const OBJ_BASE = 320000000;
 
+// Provision EVERY existing Red#/Blue# character — teams may exceed 7; extras
+// (Red8+) reuse the 7 roster classes cyclically (Red8 = slot 1's class, etc).
+const allChars = q(`SELECT char_name FROM characters WHERE char_name REGEXP '^(Red|Blue)[0-9]+$'
+  ORDER BY char_name;`).trim().split(/\r?\n/).filter(Boolean);
+
+// Clear ALL previously-provisioned items in one shot first. Object-ids are keyed
+// by loop position, so per-character deletes can't prevent cross-character
+// collisions when the roster order changes — a single upfront wipe does.
+q(`DELETE i FROM items i JOIN characters c ON i.owner_id=c.charId
+   WHERE c.char_name REGEXP '^(Red|Blue)[0-9]+$'
+     AND (i.item_id IN (10,134) OR i.object_id BETWEEN 310000000 AND 399999999);`);
+
 let idx = 0;
-for (const team of ["Red", "Blue"]) {
-  for (const c of COMP) {
-    const name = `${team}${c.slot}`;
+for (const name of allChars) {
+  {
+    const num = parseInt(name.replace(/\D/g, ""), 10);
+    const c = COMP[(num - 1) % COMP.length];
     const cid = q(`SELECT charId FROM characters WHERE char_name='${name}';`).trim();
     if (!cid) { console.log(`  ! ${name} missing`); continue; }
 
-    q(`UPDATE characters SET level=${LEVEL}, classid=${c.classId}, base_class=${c.classId}, exp=${EXP}, curHp=99999, curMp=99999 WHERE charId=${cid};`);
-    // clear any previously-provisioned gear/starter weapons
-    q(`DELETE FROM items WHERE owner_id=${cid} AND (item_id IN (10,134) OR object_id BETWEEN 310000000 AND 399999999);`);
+    q(`UPDATE characters SET level=${LEVEL}, classid=${c.classId}, base_class=${c.classId}, exp=${EXP}, curHp=99999, curMp=99999, curCp=99999 WHERE charId=${cid};`);
 
     // Prefer an explicit armor-set (chosen in the web UI); else the predefined S set
     // for the type. Everyone also gets the full S jewel set (earrings/rings/necklace).
     const armorPieces = Array.isArray(c.armorPieces) && c.armorPieces.length ? c.armorPieces : (ARMOR[c.armor] || ARMOR.heavy);
-    const items = [[c.weapon, c.ench], ...armorPieces.map((a) => [a, 0]), ...JEWELS.map((j) => [j, 0])];
+    // Enchants roll randomly within the slot's range (from..to) so every
+    // character gets its own value; a bare `ench` is a fixed value.
+    const rnd = (lo, hi) => { lo = Math.max(0, +lo || 0); hi = Math.max(lo, +hi || lo); return lo + Math.floor(Math.random() * (hi - lo + 1)); };
+    const wEnch = rnd(c.ench, c.enchMax ?? c.ench);
+    const armorLo = c.armorEnch ?? 0, armorHi = c.armorEnchMax ?? armorLo;
+    const items = [[c.weapon, wEnch], ...armorPieces.map((a) => [a, rnd(armorLo, armorHi)]), ...JEWELS.map((j) => [j, 0])];
     items.forEach(([item, ench], i) => {
       const oid = OBJ_BASE + idx * 20 + i;
       q(`INSERT INTO items (owner_id, object_id, item_id, count, enchant_level, loc, loc_data, custom_type1, custom_type2, mana_left, first_owner_id, creator_id, creation_time)
@@ -53,7 +71,7 @@ for (const team of ["Red", "Blue"]) {
       q(`INSERT INTO character_skills (charId, skill_id, skill_level, skill_name, class_index) VALUES (${cid}, ${sk}, ${maxLvl}, '${skName}', 0);`);
     }
 
-    console.log(`  ✓ ${name} — ${c.name} (${c.role}), ${items.length} items (gear+jewels)${arrows ? ", 50k arrows" : ""}, ${skills.length} skills`);
+    console.log(`  ✓ ${name} — ${c.name} (${c.role}), weapon +${wEnch}, ${items.length} items (gear+jewels)${arrows ? ", 50k arrows" : ""}, ${skills.length} skills`);
     idx++;
   }
 }
