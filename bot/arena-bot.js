@@ -30,14 +30,18 @@ class ArenaBot {
       CharSlotIndex: this.opts.charSlot || 0,
     });
     // Track deaths so we stop attacking corpses and move to the next enemy.
+    const DEBUG = !!process.env.L2_DEBUG;
+    const nameOf = (id) => { const c = Array.from(this.client.CreaturesList || []).find((x) => x.ObjectId === id); return c ? c.Name : (id === this.client.Me?.ObjectId ? "ME" : "?"); };
     this.client.GameClient.on("PacketReceived:Die", (e) => {
       const id = e && e.data && e.data.packet && e.data.packet.CharObjId;
+      if (DEBUG) console.log(`  [${this.username}] DIE id=${id} (${nameOf(id)})`);
       if (id) { this._dead.add(id); if (id === this.client.Me?.ObjectId) this._selfDead = true; }
     });
     // Revives undo deaths — otherwise a revived enemy (e.g. the boss player)
     // stays in the dead-set forever and the bots ignore them, standing idle.
     this.client.GameClient.on("PacketReceived:Revive", (e) => {
       const id = e && e.data && e.data.packet && e.data.packet.ObjectId;
+      if (DEBUG) console.log(`  [${this.username}] REVIVE id=${id} (${nameOf(id)})`);
       if (id) { this._dead.delete(id); if (id === this.client.Me?.ObjectId) this._selfDead = false; }
     });
     // Fight-back: if someone attacks me, remember them so I can retaliate.
@@ -177,6 +181,8 @@ class ArenaBot {
       const inRange = enemies.filter((e) => (e.distance ?? 1e9) <= this._range(role));
       const pick = (inRange.length ? inRange : enemies)
         .sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9))[0];
+      if (process.env.L2_DEBUG && pick.objectId !== this._curTarget)
+        console.log(`  [${this.username}] → target ${pick.name} (id ${pick.objectId}, hp ${pick.hpPercent}%, dist ${pick.distance}) of ${enemies.length} enemies; dead-set=${this._dead.size}`);
       this.engage(pick, role, skills);
     }, intervalMs);
   }
