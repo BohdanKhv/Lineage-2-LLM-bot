@@ -31,6 +31,7 @@ export const api = {
   assignClan: (body) => post("/api/clans/assign", body),
   uploadCrest: (clanId, dataUrl) => post(`/api/clans/${clanId}/crest`, { image: dataUrl }),
   serverStatus: () => j("/api/server/status"),
+  enchantCaps: () => j("/api/server/enchant-caps"),
   setGm: (charName, enable) => post("/api/gm", { charName, enable }),
   squad: (action) => post(`/api/squad/${action}`),
   restartGameserver: () => post("/api/server/gameserver/restart"),

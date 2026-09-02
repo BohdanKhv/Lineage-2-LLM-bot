@@ -209,18 +209,29 @@
     "role": "melee",
     "weapon": "6605",
     "ench": 12,
-    "armor": "heavy",
+    "armor": "light",
     "skills": [
       315,
       362,
       260,
       190,
-      36
+      36,
+      176
     ],
     "enchMax": 212,
     "armorEnchMax": 20,
     "weaponName": "Heavens Divider - Haste",
-    "weaponGrade": "s"
+    "weaponGrade": "s",
+    "armorSet": 35,
+    "armorSetName": "Tallum Leather Armor",
+    "armorGrade": "a",
+    "armorIcon": "armor_t78_ul_i00",
+    "armorPieces": [
+      2393,
+      547,
+      5769,
+      5781
+    ]
   },
   {
     "slot": 9,
@@ -240,7 +251,17 @@
     ],
     "armorEnchMax": 20,
     "weaponName": "Demon Splinter - Focus",
-    "weaponGrade": "s"
+    "weaponGrade": "s",
+    "armorSet": 35,
+    "armorSetName": "Tallum Leather Armor",
+    "armorGrade": "a",
+    "armorIcon": "armor_t78_ul_i00",
+    "armorPieces": [
+      2393,
+      547,
+      5769,
+      5781
+    ]
   },
   {
     "slot": 10,
@@ -261,7 +282,17 @@
     "enchMax": 30,
     "armorEnchMax": 20,
     "weaponName": "Arcana Mace - Acumen",
-    "weaponGrade": "s"
+    "weaponGrade": "s",
+    "armorSet": 33,
+    "armorSetName": "Dark Crystal Robe",
+    "armorGrade": "a",
+    "armorIcon": "armor_t76_ul_i00",
+    "armorPieces": [
+      2407,
+      512,
+      5767,
+      5779
+    ]
   },
   {
     "slot": 11,
@@ -282,7 +313,17 @@
     "enchMax": 20,
     "armorEnchMax": 20,
     "weaponName": "Arcana Mace - Acumen",
-    "weaponGrade": "s"
+    "weaponGrade": "s",
+    "armorSet": 33,
+    "armorSetName": "Dark Crystal Robe",
+    "armorGrade": "a",
+    "armorIcon": "armor_t76_ul_i00",
+    "armorPieces": [
+      2407,
+      512,
+      5767,
+      5779
+    ]
   },
   {
     "slot": 12,
@@ -302,7 +343,17 @@
     "enchMax": 20,
     "armorEnchMax": 20,
     "weaponName": "Arcana Mace - Acumen",
-    "weaponGrade": "s"
+    "weaponGrade": "s",
+    "armorSet": 33,
+    "armorSetName": "Dark Crystal Robe",
+    "armorGrade": "a",
+    "armorIcon": "armor_t76_ul_i00",
+    "armorPieces": [
+      2407,
+      512,
+      5767,
+      5779
+    ]
   },
   {
     "slot": 13,
@@ -322,6 +373,16 @@
     "armorEnchMax": 20,
     "enchMax": 30,
     "weaponName": "Arcana Mace - Acumen",
-    "weaponGrade": "s"
+    "weaponGrade": "s",
+    "armorSet": 33,
+    "armorSetName": "Dark Crystal Robe",
+    "armorGrade": "a",
+    "armorIcon": "armor_t76_ul_i00",
+    "armorPieces": [
+      2407,
+      512,
+      5767,
+      5779
+    ]
   }
 ]

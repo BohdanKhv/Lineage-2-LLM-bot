@@ -19,17 +19,22 @@ const MYSQL = "C:\\Program Files\\MariaDB 10.6\\bin\\mysql.exe";
 const sh = (sql) => execFileSync(MYSQL, ["-uroot", "-proot", "-D", "elmore", "-e", sql], { encoding: "utf8" });
 const shN = (sql) => execFileSync(MYSQL, ["-uroot", "-proot", "-D", "elmore", "-sN", "-e", sql], { encoding: "utf8" });
 
-// full HP, gear to INVENTORY, spread into a loose cluster (not distance 0).
+// Full HP/MP/CP and spawn positions. Gear already worn stays worn (equipped
+// items persist across relogs) — only freshly provisioned INVENTORY items get
+// equipped at boot, which avoids a 100-bot equip broadcast storm every start.
+// Spawn centre: next to the Admin if they're online, else the arena spot.
+// Rings of 10 (~50 units apart) so nobody shares a coordinate.
 function prep(names) {
-  let sql = `UPDATE characters SET curHp=99999, curMp=99999 WHERE char_name IN (${names.map((n) => `'${n}'`).join(",")});
-    UPDATE items i JOIN characters c ON i.owner_id=c.charId SET i.loc='INVENTORY'
-      WHERE c.char_name IN (${names.map((n) => `'${n}'`).join(",")}) AND i.loc='PAPERDOLL'
-        AND (i.item_id IN (SELECT item_id FROM weapon) OR i.item_id IN (SELECT item_id FROM armor) OR i.item_id IN (17,1341,1342,1343,1344,1345));\n`;
+  let sql = `UPDATE characters SET curHp=99999, curMp=99999, curCp=99999 WHERE char_name IN (${names.map((n) => `'${n}'`).join(",")});\n`;
+  let cx = 145200, cy = -68800, cz = -3746, where = "arena";
+  const adm = shN(`SELECT x, y, z, online FROM characters WHERE char_name='Admin';`).trim().split(/\t/);
+  if (adm.length === 4 && adm[3] === "1") { cx = +adm[0]; cy = +adm[1]; cz = +adm[2]; where = "Admin (last saved position)"; }
   names.forEach((n, i) => {
-    const x = 145200 + ((i % 5) - 2) * 45, y = -68800 + (Math.floor(i / 5) - 1) * 45;
-    sql += `UPDATE characters SET x=${x}, y=${y}, z=-3746 WHERE char_name='${n}';\n`;
+    const ring = Math.floor(i / 10), r = 80 + ring * 55, a = ((i % 10) / 10) * Math.PI * 2 + ring * 0.3;
+    sql += `UPDATE characters SET x=${Math.round(cx + Math.cos(a) * r)}, y=${Math.round(cy + Math.sin(a) * r)}, z=${cz} WHERE char_name='${n}';\n`;
   });
   sh(sql);
+  console.log(`spawning ${names.length} bots around ${where} @ ${cx},${cy}`);
 }
 function gearMap(accs) {
   const out = shN(`SELECT LOWER(c.account_name), i.object_id FROM items i JOIN characters c ON i.owner_id=c.charId
@@ -73,6 +78,22 @@ function teamChars(team) {
 
 async function main() {
   const arg = process.argv[2];
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  // Login raced against a timeout + retried: an account the server hasn't freed
+  // yet (right after a mass logout / server restart) makes enter() hang forever.
+  const enterWithRetry = async (acc, tries = 4) => {
+    for (let t = 1; ; t++) {
+      const nb = new ArenaBot(acc, acc);
+      try {
+        await Promise.race([nb.enter(), sleep(8000).then(() => { throw new Error("login timeout"); })]);
+        return nb;
+      } catch (err) {
+        try { nb.disconnect(); } catch (e2) { /* noop */ }
+        if (t >= tries) throw err;
+        await sleep(1500 * t);
+      }
+    }
+  };
   const teams = arg === "red" ? ["Red"] : arg === "blue" ? ["Blue"] : ["Red", "Blue"];
   const roster = [];
   teams.forEach((t) => teamChars(t).forEach((n, i) =>
@@ -96,14 +117,15 @@ async function main() {
   // Concurrent boot (see battle.js) — sequential logins made big rosters slow.
   const t0 = Date.now();
   const queue = [...roster];
+  let equipSlot = 0; // staggers each bot's equip start so 100 bots don't all broadcast at once
   await Promise.all(Array.from({ length: Math.min(8, queue.length) }, async (_, w) => {
     await new Promise((r) => setTimeout(r, w * 120));
     while (queue.length) {
       const r = queue.shift();
-      const bot = new ArenaBot(r.acc, r.acc);
       try {
-        await bot.enter();
-        (gear[r.acc] || []).forEach((o, k) => setTimeout(() => bot.useItem(o), k * 150));
+        const bot = await enterWithRetry(r.acc);
+        const base = (gear[r.acc] || []).length ? (equipSlot++) * 250 : 0;
+        (gear[r.acc] || []).forEach((o, k) => setTimeout(() => bot.useItem(o), base + k * 150));
         bots.push({ bot, role: r.role, acc: r.acc, name: r.name, team: /^red/i.test(r.name) ? "red" : "blue" });
         console.log(`  ✓ ${r.name} (${r.role.name})`);
       } catch (e) { console.log(`  ✗ ${r.acc}: ${e}`); }
@@ -116,24 +138,8 @@ async function main() {
   // Position source: live coords from any bot that can SEE the target (in-range
   // CharInfo), else the character's last-saved DB position (stale if they moved
   // since login — walk near a bot and use in-game chat for exact regroups).
-  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const WALK_RANGE = 2500; // walk if this close; otherwise relog-teleport (instant)
 
-  // Login raced against a timeout + retried: an account the server hasn't freed
-  // yet (right after a mass logout) makes enter() hang forever otherwise.
-  const enterWithRetry = async (acc, tries = 4) => {
-    for (let t = 1; ; t++) {
-      const nb = new ArenaBot(acc, acc);
-      try {
-        await Promise.race([nb.enter(), sleep(8000).then(() => { throw new Error("timeout"); })]);
-        return nb;
-      } catch (err) {
-        try { nb.disconnect(); } catch (e2) { /* noop */ }
-        if (t >= tries) throw err;
-        await sleep(1500 * t);
-      }
-    }
-  };
   // Concurrently log a set of [entry, index] pairs back in and rewire them.
   // Gear stays equipped across a relog, so no re-equip is needed.
   async function reloginAll(pairs) {

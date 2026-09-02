@@ -27,7 +27,13 @@ export default class MMOConnection implements IConnection {
 
   async read(): Promise<void> {
     if (!this.IsConnected) return;
-    const data: Uint8Array = await this.stream.recv();
+    let data: Uint8Array;
+    try {
+      data = await this.stream.recv();
+    } catch (e) {
+      this.IsConnected = false; // socket gone — end the loop quietly
+      return;
+    }
     if (data) {
       if (process.env.L2_RAWTAP) {
         // eslint-disable-next-line no-console
@@ -35,7 +41,11 @@ export default class MMOConnection implements IConnection {
       }
       this.handler.process(data).catch((err) => this.logger.warn(err));
     }
-    this.read();
+    // Yield to the event loop before the next chunk. Otherwise one socket's
+    // queued chunks drain in an unbroken microtask run and, with 100 clients,
+    // the other sockets go unread long enough for their receive buffers to
+    // overflow — the server then drops them as "disconnected abnormally".
+    setImmediate(() => { this.read(); });
   }
 
   write(raw: Uint8Array): Promise<void> {

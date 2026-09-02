@@ -56,11 +56,10 @@ function teamChars(team) {
 //    the exact same coordinate — melee attacks whiff at distance 0. Red row and
 //    Blue row are ~55 apart (melee range) so front-liners connect immediately.
 const CX = 145200, CY = -68800, Z = -3746, GAP = 45, ROW = 55;
+// Gear already worn stays worn (equipped items persist across relogs); only
+// freshly provisioned INVENTORY items get equipped at boot — no equip storm.
 function resetForBattle(reds, blues) {
-  let sql = `UPDATE characters SET curHp=99999, curMp=99999, curCp=99999 WHERE account_name LIKE 'red%' OR account_name LIKE 'blue%';
-     UPDATE items i JOIN characters c ON i.owner_id=c.charId SET i.loc='INVENTORY'
-       WHERE (c.account_name LIKE 'red%' OR c.account_name LIKE 'blue%') AND i.loc='PAPERDOLL'
-         AND (i.item_id IN (SELECT item_id FROM weapon) OR i.item_id IN (SELECT item_id FROM armor) OR i.item_id IN (17,1341,1342,1343,1344,1345));\n`;
+  let sql = `UPDATE characters SET curHp=99999, curMp=99999, curCp=99999 WHERE account_name LIKE 'red%' OR account_name LIKE 'blue%';\n`;
   // Facing rows, 7 per row; teams >7 stack extra rows further back.
   const place = (names, side) => names.forEach((n, i) => {
     const x = CX + ((i % 7) - 3) * GAP;
@@ -79,15 +78,28 @@ async function bootAll(jobs, gear) {
   const t0 = Date.now();
   const bots = [];
   const queue = jobs.map((j, i) => [i, j]);
+  let equipSlot = 0; // staggers each bot's equip start so a big roster doesn't broadcast all at once
   await Promise.all(Array.from({ length: Math.min(BOOT_CONCURRENCY, queue.length) }, async (_, w) => {
     await new Promise((r) => setTimeout(r, w * 120)); // stagger the first wave
     while (queue.length) {
       const [, j] = queue.shift();
-      const bot = new ArenaBot(j.acc, j.acc);
+      let bot = null;
       try {
-        await bot.enter();
+        // Login raced against a timeout + retried — a not-yet-freed account makes enter() hang.
+        for (let t = 1; ; t++) {
+          bot = new ArenaBot(j.acc, j.acc);
+          try {
+            await Promise.race([bot.enter(), new Promise((_, rej) => setTimeout(() => rej(new Error("login timeout")), 8000))]);
+            break;
+          } catch (e) {
+            try { bot.disconnect(); } catch (e2) { /* noop */ }
+            if (t >= 4) throw e;
+            await new Promise((r) => setTimeout(r, 1500 * t));
+          }
+        }
         const items = gear[j.acc] || [];
-        items.forEach((o, k) => setTimeout(() => bot.useItem(o), k * 150)); // equip full set in-game
+        const base = items.length ? (equipSlot++) * 250 : 0;
+        items.forEach((o, k) => setTimeout(() => bot.useItem(o), base + k * 150)); // equip what isn't worn yet
         bots.push({ ...j, bot });
         console.log(`  ✓ ${j.acc} — ${j.role.name} (${j.role.role}), ${items.length} items`);
       } catch (e) { console.log(`  ✗ ${j.acc}: ${e}`); }

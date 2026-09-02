@@ -51,6 +51,11 @@ class MMOClient extends EventEmitter_1.default {
             }
             let i = 0;
             while (i < data.byteLength) {
+                if (i + 2 > data.byteLength) {
+                    this._buffer = data.slice(i);
+                    reject("Incomplete packet");
+                    break;
+                }
                 const packetLength = data[i] + (data[i + 1] << 8);
                 if (packetLength <= 2) {
                     break;

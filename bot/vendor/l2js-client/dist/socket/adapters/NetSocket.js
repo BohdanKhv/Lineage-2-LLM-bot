@@ -29,9 +29,14 @@ class NetSocket {
         this.ip = ip;
         this.port = port;
         this.timeout = 5000;
+        this._queue = [];
+        this._waiting = null;
+        this._closed = false;
     }
     connect() {
         this._socket = new net.Socket();
+        this._queue = [];
+        this._closed = false;
         return new Promise((resolve, reject) => {
             this.timeoutTimer = setTimeout(() => {
                 this._socket.end();
@@ -39,7 +44,29 @@ class NetSocket {
                 reject("Socket timeout");
             }, this.timeout);
             this._socket.setTimeout(0);
+            this._socket.setNoDelay(true);
             this._socket.once("error", (err) => reject(err));
+            this._socket.on("data", (data) => {
+                if (this._waiting) {
+                    const w = this._waiting;
+                    this._waiting = null;
+                    w.resolve(data);
+                }
+                else {
+                    this._queue.push(data);
+                }
+            });
+            const onGone = () => {
+                this._closed = true;
+                if (this._waiting) {
+                    const w = this._waiting;
+                    this._waiting = null;
+                    w.reject("Connection is closed");
+                }
+            };
+            this._socket.on("close", onGone);
+            this._socket.on("end", onGone);
+            this._socket.on("error", onGone);
             this._socket.connect(this.port, this.ip, () => {
                 clearTimeout(this.timeoutTimer);
                 resolve();
@@ -49,12 +76,8 @@ class NetSocket {
     send(bytes) {
         return new Promise((resolve, reject) => {
             if (!this._socket.destroyed) {
-                if (this._socket.write(bytes)) {
-                    resolve();
-                }
-                else {
-                    reject("Data not sent");
-                }
+                this._socket.write(bytes);
+                resolve();
             }
             else {
                 reject("Connection is closed");
@@ -63,30 +86,25 @@ class NetSocket {
     }
     recv() {
         return new Promise((resolve, reject) => {
-            if (!this._socket.destroyed) {
-                this._socket.resume();
-                this._socket.once("data", (data) => {
-                    resolve(data);
-                    this._socket.pause();
-                });
+            if (this._queue.length) {
+                resolve(this._queue.shift());
+            }
+            else if (this._closed || this._socket.destroyed) {
+                reject("Connection is closed");
             }
             else {
-                reject("Connection is closed");
+                this._waiting = { resolve, reject };
             }
         });
     }
     close() {
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
             if (!this._socket.destroyed) {
-                this._socket.once("close", (err) => {
-                    if (err) {
-                        reject(err);
-                    }
-                    else {
-                        resolve();
-                    }
-                });
+                this._socket.once("close", () => resolve());
                 this._socket.destroy();
+            }
+            else {
+                resolve();
             }
         });
     }

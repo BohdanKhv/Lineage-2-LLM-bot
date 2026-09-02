@@ -78,6 +78,8 @@ export default function Roster({ notify }) {
   const [status, setStatus] = useState([]);
   const [busy, setBusy] = useState(false);
   const [gear, setGear] = useState({}); // slotIdx -> {weapon:{icon,grade,name}}
+  const [caps, setCaps] = useState(null); // server enchant caps — above these the server KICKS on equip
+  useEffect(() => { api.enchantCaps().then(setCaps).catch(() => {}); }, []);
 
   const refreshStatus = () => api.rosterStatus().then(setStatus).catch(() => {});
   useEffect(() => {
@@ -180,6 +182,7 @@ export default function Roster({ notify }) {
         ))}
       </div>
       <p className="muted" style={{ fontSize: 12 }}>
+        {caps && <><b>Server enchant caps:</b> weapon +{caps.weapon}, armor +{caps.armor} — the gameserver <b>kicks</b> a character that equips anything higher (provisioning clamps to these). </>}
         Icons are pulled once from the L2 icon set and cached locally. Click skills to add/remove them from the rotation.
         <b> Save</b> writes the config; <b>Provision to DB</b> applies classes, gear (chosen armor set or the default S set) and skills
         to every Red/Blue character (bots must be logged out).

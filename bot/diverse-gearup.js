@@ -9,6 +9,25 @@ const q = (sql) => execFileSync(MYSQL, ["-uroot", "-proot", "-D", "elmore", "-sN
 // The server re-derives level from exp at login (1.5B exp silently gave 77, not
 // 78). 4268429310 is a known-good level-80 exp — the Admin char's value.
 const LEVEL = 80, EXP = "4268429310";
+
+// The gameserver KICKS a character that equips an item above its enchant cap
+// (enchant.properties EnchantMax*: audit "over-enchanted item"). Read the caps
+// and clamp so provisioning can never produce a kick-on-equip item.
+const ENCHANT_CFG = "d:\\l2 project\\elmore\\game\\config\\main\\enchant.properties";
+function enchantCaps() {
+  const caps = { weapon: 17, armor: 17, jewelry: 17 };
+  try {
+    const txt = require("fs").readFileSync(ENCHANT_CFG, "utf8");
+    for (const [k, key] of [["weapon", "EnchantMaxWeapon"], ["armor", "EnchantMaxArmor"], ["jewelry", "EnchantMaxJewelry"]]) {
+      const m = txt.match(new RegExp(`^\\s*${key}\\s*=\\s*(\\d+)`, "m"));
+      if (m) caps[k] = parseInt(m[1], 10);
+    }
+  } catch (e) { /* keep defaults */ }
+  return caps;
+}
+const CAPS = enchantCaps();
+let clamped = 0;
+const capTo = (v, cap) => { if (v > cap) { clamped++; return cap; } return v; };
 const OBJ_BASE = 320000000;
 
 // Provision EVERY existing Red#/Blue# character — teams may exceed 7; extras
@@ -39,9 +58,9 @@ for (const name of allChars) {
     // Enchants roll randomly within the slot's range (from..to) so every
     // character gets its own value; a bare `ench` is a fixed value.
     const rnd = (lo, hi) => { lo = Math.max(0, +lo || 0); hi = Math.max(lo, +hi || lo); return lo + Math.floor(Math.random() * (hi - lo + 1)); };
-    const wEnch = rnd(c.ench, c.enchMax ?? c.ench);
+    const wEnch = capTo(rnd(c.ench, c.enchMax ?? c.ench), CAPS.weapon);
     const armorLo = c.armorEnch ?? 0, armorHi = c.armorEnchMax ?? armorLo;
-    const items = [[c.weapon, wEnch], ...armorPieces.map((a) => [a, rnd(armorLo, armorHi)]), ...JEWELS.map((j) => [j, 0])];
+    const items = [[c.weapon, wEnch], ...armorPieces.map((a) => [a, capTo(rnd(armorLo, armorHi), CAPS.armor)]), ...JEWELS.map((j) => [j, 0])];
     items.forEach(([item, ench], i) => {
       const oid = OBJ_BASE + idx * 20 + i;
       q(`INSERT INTO items (owner_id, object_id, item_id, count, enchant_level, loc, loc_data, custom_type1, custom_type2, mana_left, first_owner_id, creator_id, creation_time)
@@ -75,4 +94,5 @@ for (const name of allChars) {
     idx++;
   }
 }
+if (clamped) console.log(`\n! ${clamped} enchant value(s) clamped to the server caps (weapon +${CAPS.weapon}, armor +${CAPS.armor}) — above that the gameserver kicks on equip.`);
 console.log("\nDiverse team provisioned. Boot with: node battle.js");

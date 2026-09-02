@@ -38,7 +38,14 @@ class MMOConnection {
         return __awaiter(this, void 0, void 0, function* () {
             if (!this.IsConnected)
                 return;
-            const data = yield this.stream.recv();
+            let data;
+            try {
+                data = yield this.stream.recv();
+            }
+            catch (e) {
+                this.IsConnected = false;
+                return;
+            }
             if (data) {
                 if (process.env.L2_RAWTAP) {
                     try {
@@ -48,7 +55,7 @@ class MMOConnection {
                 }
                 this.handler.process(data).catch((err) => this.logger.warn(err));
             }
-            this.read();
+            setImmediate(() => { this.read(); });
         });
     }
     write(raw) {

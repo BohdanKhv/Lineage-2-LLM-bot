@@ -75,6 +75,13 @@ export default abstract class MMOClient extends EventEmitter implements IProcess
 
       let i = 0;
       while (i < data.byteLength) {
+        // A chunk boundary can split the 2-byte length header itself: keep the
+        // lone byte for the next chunk instead of misreading it as a length.
+        if (i + 2 > data.byteLength) {
+          this._buffer = data.slice(i);
+          reject("Incomplete packet");
+          break;
+        }
         const packetLength = data[i] + (data[i + 1] << 8);
 
         if (packetLength <= 2) {

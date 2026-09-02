@@ -492,6 +492,22 @@ app.post("/api/squad/:action(restore|respawn|stopfight|level)", async (req, res)
   } catch (e) { err(res, e); }
 });
 
+// ------------------------------------------------- server enchant caps ------
+// The gameserver kicks anyone equipping an item above EnchantMax* — the roster
+// UI shows these so ranges stay legal. Read live from enchant.properties.
+const ENCHANT_CFG = "d:\\l2 project\\elmore\\game\\config\\main\\enchant.properties";
+app.get("/api/server/enchant-caps", (_req, res) => {
+  const caps = { weapon: 17, armor: 17, jewelry: 17 };
+  try {
+    const txt = fs.readFileSync(ENCHANT_CFG, "utf8");
+    for (const [k, key] of [["weapon", "EnchantMaxWeapon"], ["armor", "EnchantMaxArmor"], ["jewelry", "EnchantMaxJewelry"]]) {
+      const m = txt.match(new RegExp(`^\\s*${key}\\s*=\\s*(\\d+)`, "m"));
+      if (m) caps[k] = parseInt(m[1], 10);
+    }
+  } catch (e) { /* defaults */ }
+  res.json(caps);
+});
+
 // ------------------------------------------------------------- GM rights ----
 // This pack grants GM per CHARACTER: game/config/administration/gmaccess/*.cfg
 // (CharId + rights + command whitelist, loaded at gameserver BOOT) plus the
