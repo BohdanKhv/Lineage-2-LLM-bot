@@ -44,10 +44,10 @@ tbody tr:hover { background: var(--panel2); }
 .scroll { max-height: 60vh; overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
 
 /* roster */
-.slot { display: grid; grid-template-columns: 30px 1.2fr 1.4fr 1fr 2fr; gap: 10px;
-  align-items: center; padding: 10px; border-bottom: 1px solid var(--border); }
+.slot { display: grid; grid-template-columns: 1.2fr 1.4fr 2fr; gap: 10px;
+padding: 10px; border-bottom: 1px solid var(--border); }
 .slot.head { color: var(--muted); font-size: 12px; font-weight: 600; }
-.slot .idx { color: var(--accent); font-weight: 700; text-align: center; }
+.slot .idx { height: 28px; color: var(--accent); font-weight: 700; text-align: center; flex-direction: column; display: flex; justify-content: center; }
 .chips { display: flex; flex-wrap: wrap; gap: 4px; }
 .chip { font-size: 11px; background: var(--panel2); border: 1px solid var(--border);
   border-radius: 12px; padding: 2px 8px; cursor: pointer; }

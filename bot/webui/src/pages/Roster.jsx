@@ -12,12 +12,12 @@ function Picker({ placeholder, search, render, onPick, icon, grade, label }) {
   const [open, setOpen] = useState(false);
   const [res, setRes] = useState([]);
   useEffect(() => {
-    if (!open || q.length < 2) { setRes([]); return; }
+    if (!open || q.length < 1) { setRes([]); return; }
     const t = setTimeout(() => search(q).then(setRes).catch(() => setRes([])), 220);
     return () => clearTimeout(t);
   }, [q, open]);
   return (
-    <div style={{ position: "relative" }}>
+    <div style={{ position: "relative", flex: "1" }}>
       <div className="row" style={{ gap: 6, marginBottom: 4 }}>
         <Icon name={icon} grade={grade} size={24} />
         <span style={{ fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={label}>{label || "—"}</span>
@@ -59,7 +59,7 @@ function SkillPicker({ classId, selected, onToggle }) {
       <input placeholder={`filter ${skills.length} skills…`} value={filter}
         onChange={(e) => setFilter(e.target.value)}
         style={{ width: "100%", marginBottom: 6, padding: "3px 8px", fontSize: 12 }} />
-      <div className="chips" style={{ maxHeight: 110, overflowY: "auto" }}>
+      <div className="chips" style={{ maxHeight: 180, overflowY: "auto" }}>
         {[...chosen, ...rest].map((s) => (
           <span key={s.id} className={"chip" + (selected.includes(s.id) ? " sel" : "")}
             title={`id ${s.id} · lvl ${s.maxLevel}`} onClick={() => onToggle(s.id)}
@@ -133,56 +133,58 @@ export default function Roster({ notify }) {
         </div>
         {comp.map((s, i) => (
           <div className="slot" key={i}>
-            <div className="idx">{s.slot}</div>
             <div>
+              <div className="idx">
+                Character {s.slot}
+              </div>
               <select style={{ width: "100%" }} value={s.classId}
                 onChange={(e) => { const cid = +e.target.value; const cl = classes.find((c) => c.id === cid);
                   update(i, { classId: cid, name: cl ? cl.name.replace(/\s/g, "") : s.name }); }}>
                 {classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
-              <div className="row" style={{ gap: 4, marginTop: 6, flexWrap: "nowrap" }} title="weapon enchant — each character rolls a random value in this range">
-                <span className="muted" style={{ fontSize: 11, width: 46 }}>wpn +</span>
-                <input style={{ width: 48 }} type="number" min={0} value={s.ench ?? 0}
-                  onChange={(e) => update(i, { ench: Math.max(0, +e.target.value || 0) })} />
-                <span className="muted" style={{ fontSize: 11 }}>–</span>
-                <input style={{ width: 48 }} type="number" min={0} value={s.enchMax ?? s.ench ?? 0}
-                  onChange={(e) => update(i, { enchMax: Math.max(0, +e.target.value || 0) })} />
-              </div>
-              <div className="row" style={{ gap: 4, marginTop: 4, flexWrap: "nowrap" }} title="armor enchant — each piece rolls a random value in this range">
-                <span className="muted" style={{ fontSize: 11, width: 46 }}>armor +</span>
-                <input style={{ width: 48 }} type="number" min={0} value={s.armorEnch ?? 0}
-                  onChange={(e) => update(i, { armorEnch: Math.max(0, +e.target.value || 0) })} />
-                <span className="muted" style={{ fontSize: 11 }}>–</span>
-                <input style={{ width: 48 }} type="number" min={0} value={s.armorEnchMax ?? s.armorEnch ?? 0}
-                  onChange={(e) => update(i, { armorEnchMax: Math.max(0, +e.target.value || 0) })} />
-              </div>
+              <select value={s.role} onChange={(e) => update(i, { role: e.target.value })} style={{ width: "100%", marginTop: 6 }}>
+                {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+              </select>
             </div>
             <div>
+              <div style={{ display: "flex", alignItems: "end", gap: 4 }}>
               <Picker placeholder="search weapon…" search={(q) => api.weapons({ q, limit: 25 })}
                 icon={gear[i]?.weapon?.icon} grade={gear[i]?.weapon?.grade || s.weaponGrade}
                 label={gear[i]?.weapon?.name || s.weaponName || `#${s.weapon}`}
                 render={(w) => <><Grade g={w.grade} /> {w.name} <span className="muted">· {w.type} · {w.pAtk}</span></>}
                 onPick={(w) => { update(i, { weapon: w.id, weaponName: w.name, weaponGrade: w.grade, role: guessRole(w.type, s.role) });
                   setGear((g) => ({ ...g, [i]: { weapon: w } })); }} />
-            </div>
-            <div>
-              <Picker placeholder="search armor set…" search={(q) => api.armorsets({ q, limit: 40 })}
-                icon={s.armorIcon} grade={s.armorGrade}
-                label={s.armorSetName ? s.armorSetName.replace(/ (Breastplate|Tunic|Robe).*/, "") : `${s.armor} (default S)`}
-                render={(a) => <><Grade g={a.grade} /> {a.name.replace(/ (Breastplate|Tunic|Robe).*/, "")} <span className="muted">· {a.type}</span></>}
-                onPick={(a) => update(i, { armor: a.type === "magic" ? "robe" : a.type, armorSet: a.id, armorSetName: a.name, armorGrade: a.grade, armorIcon: a.icon, armorPieces: a.pieces })} />
-              <select value={s.role} onChange={(e) => update(i, { role: e.target.value })} style={{ width: "100%", marginTop: 6 }}>
-                {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
-              </select>
-              <div className="row" style={{ gap: 4, marginTop: 4, flexWrap: "nowrap" }} title="potions given at provisioning — bots auto-use Greater CP Potions under 60% CP and Mana Potions under 35% MP">
-                <span className="muted" style={{ fontSize: 11 }}>CP</span>
-                <input style={{ width: 58 }} type="number" min={0} value={s.cpPots ?? 5000} onChange={(e) => update(i, { cpPots: Math.max(0, +e.target.value || 0) })} />
-                <span className="muted" style={{ fontSize: 11 }}>MP</span>
-                <input style={{ width: 58 }} type="number" min={0} value={s.mpPots ?? 5000} onChange={(e) => update(i, { mpPots: Math.max(0, +e.target.value || 0) })} />
-                <span className="muted" style={{ fontSize: 11 }}>pots</span>
+              <div className="row" style={{ gap: 4, marginTop: 6, flexWrap: "nowrap" }} title="weapon enchant — each character rolls a random value in this range">
+                  <input style={{ width: 48 }} type="number" min={0} value={s.ench ?? 0} placeholder="+0"
+                    onChange={(e) => update(i, { ench: Math.max(0, +e.target.value || 0) })} />
+                  <span className="muted" style={{ fontSize: 11 }}>–</span>
+                  <input style={{ width: 48 }} type="number" min={0} value={s.enchMax ?? s.ench ?? 0} placeholder="+0"
+                    onChange={(e) => update(i, { enchMax: Math.max(0, +e.target.value || 0) })} />
+                </div>
+              </div>
+                <div style={{ display: "flex", alignItems: "end", gap: 4, marginTop: 4, }}>
+                  <Picker placeholder="search armor set…" search={(q) => api.armorsets({ q, limit: 40 })}
+                    icon={s.armorIcon} grade={s.armorGrade}
+                    label={s.armorSetName ? s.armorSetName.replace(/ (Breastplate|Tunic|Robe).*/, "") : `${s.armor} (default S)`}
+                    render={(a) => <><Grade g={a.grade} /> {a.name.replace(/ (Breastplate|Tunic|Robe).*/, "")} <span className="muted">· {a.type}</span></>}
+                    onPick={(a) => update(i, { armor: a.type === "magic" ? "robe" : a.type, armorSet: a.id, armorSetName: a.name, armorGrade: a.grade, armorIcon: a.icon, armorPieces: a.pieces })} />
+                <div className="row" style={{ gap: 4, marginTop: 4, flexWrap: "nowrap" }} title="armor enchant — each piece rolls a random value in this range">
+                  <input style={{ width: 48 }} type="number" min={0} value={s.armorEnch ?? 0} placeholder="+0"
+                    onChange={(e) => update(i, { armorEnch: Math.max(0, +e.target.value || 0) })} />
+                  <span className="muted" style={{ fontSize: 11 }}>–</span>
+                  <input style={{ width: 48 }} type="number" min={0} value={s.armorEnchMax ?? s.armorEnch ?? 0} placeholder="+0"
+                    onChange={(e) => update(i, { armorEnchMax: Math.max(0, +e.target.value || 0) })} />
+                </div>
               </div>
             </div>
             <div>
+              <div className="row" style={{ gap: 4, marginBottom: 4, flexWrap: "nowrap" }} title="potions given at provisioning — bots auto-use Greater CP Potions under 60% CP and Mana Potions under 35% MP">
+                <span className="muted" style={{ fontSize: 11 }}>CP</span>
+                <input style={{ width: "100%" }} type="number" min={0} value={s.cpPots ?? 5000} onChange={(e) => update(i, { cpPots: Math.max(0, +e.target.value || 0) })} />
+                <span className="muted" style={{ fontSize: 11 }}>MP</span>
+                <input style={{ width: "100%" }} type="number" min={0} value={s.mpPots ?? 5000} onChange={(e) => update(i, { mpPots: Math.max(0, +e.target.value || 0) })} />
+                <span className="muted" style={{ fontSize: 11 }}>pots</span>
+              </div>
               <SkillPicker classId={s.classId} selected={s.skills || []} onToggle={(id) => toggleSkill(i, id)} />
             </div>
           </div>
