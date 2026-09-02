@@ -40,6 +40,9 @@ export default class L2Item extends L2Object {
 
   static readonly SLOT_MULTI_ALLWEAPON = L2Item.SLOT_LR_HAND | L2Item.SLOT_R_HAND;
 
+  // Equip slot mask from the server (see readItem); 0 = not equippable.
+  public BodyPart = 0;
+
   private _attackElementType!: Element;
   private _attackElementVal!: number;
   private _defAttFire!: number;

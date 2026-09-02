@@ -55,19 +55,33 @@ function teamChars(team) {
 //  - spread spawn positions into two facing rows. CRITICAL: bots must NOT share
 //    the exact same coordinate — melee attacks whiff at distance 0. Red row and
 //    Blue row are ~55 apart (melee range) so front-liners connect immediately.
-const CX = 145200, CY = -68800, Z = -3746, GAP = 45, ROW = 55;
+const ARENA = { cx: 145200, cy: -68800, z: -3746 }, GAP = 45, ROW = 55;
+// Spawn centre: next to the player named in L2_SPAWN_AT (last-saved position)
+// if that character exists, else the arena spot.
+function spawnCenter() {
+  const who = (process.env.L2_SPAWN_AT || "").trim();
+  if (who) {
+    const row = execFileSync(MYSQL, ["-uroot", "-proot", "-D", "elmore", "-sN", "-e",
+      `SELECT x, y, z FROM characters WHERE LOWER(char_name)=LOWER('${who.replace(/'/g, "")}');`], { encoding: "utf8" }).trim();
+    if (row) { const [x, y, z] = row.split(/\t/).map(Number); return { cx: x, cy: y, z, where: `next to ${who}` }; }
+    console.log(`  ! no character named "${who}" — spawning at the arena`);
+  }
+  return { ...ARENA, where: "arena" };
+}
 // Gear already worn stays worn (equipped items persist across relogs); only
-// freshly provisioned INVENTORY items get equipped at boot — no equip storm.
+// what the server reports as unworn gets equipped at boot — no equip storm.
 function resetForBattle(reds, blues) {
+  const c = spawnCenter();
   let sql = `UPDATE characters SET curHp=99999, curMp=99999, curCp=99999 WHERE account_name LIKE 'red%' OR account_name LIKE 'blue%';\n`;
   // Facing rows, 7 per row; teams >7 stack extra rows further back.
   const place = (names, side) => names.forEach((n, i) => {
-    const x = CX + ((i % 7) - 3) * GAP;
-    const y = CY + side * (ROW + Math.floor(i / 7) * 50);
-    sql += `UPDATE characters SET x=${x}, y=${y}, z=${Z} WHERE char_name='${n}';\n`;
+    const x = c.cx + ((i % 7) - 3) * GAP;
+    const y = c.cy + side * (ROW + Math.floor(i / 7) * 50);
+    sql += `UPDATE characters SET x=${x}, y=${y}, z=${c.z} WHERE char_name='${n}';\n`;
   });
   place(reds, -1); place(blues, +1);
   execFileSync(MYSQL, ["-uroot", "-proot", "-D", "elmore", "-e", sql], { encoding: "utf8" });
+  console.log(`spawning ${reds.length + blues.length} bots ${c.where} @ ${c.cx},${c.cy}`);
 }
 
 // Log the whole roster in CONCURRENTLY (a few at a time, lightly staggered) —
@@ -97,11 +111,11 @@ async function bootAll(jobs, gear) {
             await new Promise((r) => setTimeout(r, 1500 * t));
           }
         }
-        const items = gear[j.acc] || [];
-        const base = items.length ? (equipSlot++) * 250 : 0;
-        items.forEach((o, k) => setTimeout(() => bot.useItem(o), base + k * 150)); // equip what isn't worn yet
         bots.push({ ...j, bot });
-        console.log(`  ✓ ${j.acc} — ${j.role.name} (${j.role.role}), ${items.length} items`);
+        // Equip only what the server reports as unworn (staggered across bots).
+        // Not awaited — the next login in this lane must not wait for an ItemList.
+        bot.equipInventory((equipSlot++) * 250).then((eq) => { if (eq.equipping) console.log(`    ⚙ ${j.acc}: equipping ${eq.equipping}`); }).catch(() => {});
+        console.log(`  ✓ ${j.acc} — ${j.role.name} (${j.role.role})`);
       } catch (e) { console.log(`  ✗ ${j.acc}: ${e}`); }
     }
   }));
@@ -112,6 +126,15 @@ async function bootAll(jobs, gear) {
 async function main() {
   const reds = teamChars("Red").slice(0, N);
   const blues = teamChars("Blue").slice(0, N);
+  // A just-killed session is still being saved by the server — wait until
+  // everyone shows offline before resetting positions / logging in.
+  for (let i = 0; i < 20; i++) {
+    const n = +execFileSync(MYSQL, ["-uroot", "-proot", "-D", "elmore", "-sN", "-e",
+      "SELECT COUNT(*) FROM characters WHERE online=1 AND (account_name LIKE 'red%' OR account_name LIKE 'blue%');"], { encoding: "utf8" }).trim();
+    if (!n) break;
+    if (i === 0) console.log(`waiting for ${n} bot(s) to finish logging out...`);
+    await new Promise((r) => setTimeout(r, 500));
+  }
   resetForBattle(reds, blues);
   const gear = gearMap();
   const jobs = [];

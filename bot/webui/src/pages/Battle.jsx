@@ -60,8 +60,9 @@ export default function Battle({ notify }) {
 
   useEffect(() => { if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight; }, [lines]);
 
+  const [spawnAt, setSpawnAt] = useState("Admin");
   const start = async () => {
-    const payload = { mode, size, llm };
+    const payload = { mode, size, llm, spawnAt: spawnAt.trim() };
     if (mode === "custom") {
       payload.teams = {
         a: Object.keys(assign).filter((n) => assign[n] === "a"),
@@ -73,8 +74,10 @@ export default function Battle({ notify }) {
       if (!clanA || !clanB || clanA === clanB) return notify("Pick two different clans.");
       payload.clanA = +clanA; payload.clanB = +clanB;
     }
-    try { await api.startBattle(payload); }
-    catch (e) { notify("Start failed: " + e.message); }
+    try {
+      const r = await api.startBattle(payload);
+      if (r.excluded?.length) notify(`Not fighting (human/GM/spawn player): ${r.excluded.join(", ")}`);
+    } catch (e) { notify("Start failed: " + e.message); }
   };
   const cycle = (name) => setAssign((s) => {
     const cur = s[name];
@@ -149,6 +152,10 @@ export default function Battle({ notify }) {
         )}
 
         <div className="row" style={{ marginTop: 16 }}>
+          <label className="row" style={{ gap: 8 }} title="The bots spawn next to this player (their last-saved position). Leave empty for the arena spot.">
+            Spawn next to
+            <input value={spawnAt} onChange={(e) => setSpawnAt(e.target.value)} placeholder="arena" style={{ width: 110 }} />
+          </label>
           {mode === "team" && (
             <label className="row" style={{ gap: 8 }}>
               Team size

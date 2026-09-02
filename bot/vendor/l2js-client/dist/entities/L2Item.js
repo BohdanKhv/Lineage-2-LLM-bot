@@ -8,6 +8,7 @@ const L2ObjectCollection_1 = __importDefault(require("./L2ObjectCollection"));
 class L2Item extends L2Object_1.default {
     constructor() {
         super(...arguments);
+        this.BodyPart = 0;
         this._ingredients = new L2ObjectCollection_1.default();
     }
     get AttackElementVal() {

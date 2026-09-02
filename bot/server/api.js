@@ -267,9 +267,10 @@ async function resolveMembers(names) {
 }
 
 app.post("/api/battle/start", async (req, res) => {
-  const { mode = "team", size = 7, llm = false, team, teams, clanA, clanB } = req.body || {};
+  const { mode = "team", size = 7, llm = false, team, teams, clanA, clanB, spawnAt } = req.body || {};
   try {
     let args, kind = "battle";
+    const excluded = []; // humans/GMs dropped from clan teams — reported back to the UI
     if (mode === "commander") { kind = "commander"; args = ["commander.js", team === "red" || team === "blue" ? team : ""].filter(Boolean); }
     else if (mode === "boss") args = ["battle.js", "boss"];
     else if (mode === "custom" || mode === "clan") {
@@ -284,11 +285,24 @@ app.post("/api/battle/start", async (req, res) => {
         [labelA, labelB] = [teams.labelA || "Team A", teams.labelB || "Team B"];
       } else {
         if (!clanA || !clanB || clanA === clanB) return res.status(400).json({ error: "two different clan ids required" });
-        const members = (cid) => q("SELECT char_name AS name, LOWER(account_name) AS account FROM characters WHERE clanid = :cid", { cid });
+        // Only BOT characters fight: skip GMs, elevated accounts (your Admin
+        // leads a clan!) and the spawn-at player — otherwise the whole enemy
+        // clan piles onto the human standing at the spawn point.
+        const gms = gmCharIds();
+        const skip = String(spawnAt || "").toLowerCase();
+        const members = async (cid) => {
+          const rows = await q(
+            `SELECT c.charId AS id, c.char_name AS name, LOWER(c.account_name) AS account, COALESCE(a.accessLevel, 0) AS lvl
+               FROM characters c LEFT JOIN accounts a ON a.login = c.account_name WHERE c.clanid = :cid`, { cid });
+          const keep = [], out = [];
+          rows.forEach((r) => ((gms.has(Number(r.id)) || r.lvl > 0 || r.name.toLowerCase() === skip) ? out : keep).push(r));
+          excluded.push(...out.map((r) => r.name));
+          return keep.map((r) => ({ name: r.name, account: r.account }));
+        };
         const clanName = async (cid) => ((await q("SELECT clan_name AS n FROM clan_data WHERE clan_id = :cid", { cid }))[0] || {}).n || `clan ${cid}`;
         [a, b] = [await members(clanA), await members(clanB)];
         [labelA, labelB] = [await clanName(clanA), await clanName(clanB)];
-        if (!a.length || !b.length) return res.status(400).json({ error: "both clans need at least one member" });
+        if (!a.length || !b.length) return res.status(400).json({ error: "both clans need at least one BOT member (humans/GMs are excluded)" });
       }
       const matchPath = path.join(BOT_DIR, "match.json");
       fs.writeFileSync(matchPath, JSON.stringify({
@@ -301,8 +315,12 @@ app.post("/api/battle/start", async (req, res) => {
       args = ["arena.js"];
     }
     else args = ["battle.js", String(Math.max(1, Math.min(50, parseInt(size, 10) || 7)))];
-    const r = runChild(kind, args, llm ? { L2_LLM: "1" } : {});
-    res.status(r.ok ? 200 : 409).json(r);
+    // spawnAt: every engine spawns its bots next to this player (env passthrough).
+    const env = {};
+    if (llm) env.L2_LLM = "1";
+    if (spawnAt && String(spawnAt).trim()) env.L2_SPAWN_AT = String(spawnAt).trim().replace(/[^A-Za-z0-9_]/g, "");
+    const r = runChild(kind, args, env);
+    res.status(r.ok ? 200 : 409).json({ ...r, excluded });
   } catch (e) { err(res, e); }
 });
 

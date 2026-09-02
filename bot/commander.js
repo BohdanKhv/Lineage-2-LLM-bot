@@ -27,8 +27,15 @@ const shN = (sql) => execFileSync(MYSQL, ["-uroot", "-proot", "-D", "elmore", "-
 function prep(names) {
   let sql = `UPDATE characters SET curHp=99999, curMp=99999, curCp=99999 WHERE char_name IN (${names.map((n) => `'${n}'`).join(",")});\n`;
   let cx = 145200, cy = -68800, cz = -3746, where = "arena";
-  const adm = shN(`SELECT x, y, z, online FROM characters WHERE char_name='Admin';`).trim().split(/\t/);
-  if (adm.length === 4 && adm[3] === "1") { cx = +adm[0]; cy = +adm[1]; cz = +adm[2]; where = "Admin (last saved position)"; }
+  // Explicit L2_SPAWN_AT=<player> wins (any online state); else Admin if online.
+  const who = (process.env.L2_SPAWN_AT || "").trim();
+  const row = who ? shN(`SELECT x, y, z FROM characters WHERE LOWER(char_name)=LOWER('${who.replace(/'/g, "")}');`).trim() : "";
+  if (row) { [cx, cy, cz] = row.split(/\t/).map(Number); where = `next to ${who} (last saved position)`; }
+  else {
+    if (who) console.log(`  ! no character named "${who}"`);
+    const adm = shN(`SELECT x, y, z, online FROM characters WHERE char_name='Admin';`).trim().split(/\t/);
+    if (adm.length === 4 && adm[3] === "1") { cx = +adm[0]; cy = +adm[1]; cz = +adm[2]; where = "Admin (last saved position)"; }
+  }
   names.forEach((n, i) => {
     const ring = Math.floor(i / 10), r = 80 + ring * 55, a = ((i % 10) / 10) * Math.PI * 2 + ring * 0.3;
     sql += `UPDATE characters SET x=${Math.round(cx + Math.cos(a) * r)}, y=${Math.round(cy + Math.sin(a) * r)}, z=${cz} WHERE char_name='${n}';\n`;
@@ -99,8 +106,16 @@ async function main() {
   teams.forEach((t) => teamChars(t).forEach((n, i) =>
     roster.push({ acc: n.toLowerCase(), name: n, role: COMP[i % COMP.length] })));
 
+  // If a previous session was just killed, the server is still saving those
+  // characters — wait for them to show offline before we touch anything.
+  const nameList = roster.map((r) => `'${r.name}'`).join(",");
+  for (let i = 0; i < 20; i++) {
+    const n = +shN(`SELECT COUNT(*) FROM characters WHERE online=1 AND char_name IN (${nameList});`).trim();
+    if (!n) break;
+    if (i === 0) console.log(`waiting for ${n} bot(s) to finish logging out...`);
+    await new Promise((r) => setTimeout(r, 500));
+  }
   prep(roster.map((r) => r.name));
-  const gear = gearMap(roster.map((r) => r.acc));
 
   const bots = [];
   // Chat listener + passive battle loop for one bot (re-used after a relog-teleport).
@@ -124,9 +139,10 @@ async function main() {
       const r = queue.shift();
       try {
         const bot = await enterWithRetry(r.acc);
-        const base = (gear[r.acc] || []).length ? (equipSlot++) * 250 : 0;
-        (gear[r.acc] || []).forEach((o, k) => setTimeout(() => bot.useItem(o), base + k * 150));
         bots.push({ bot, role: r.role, acc: r.acc, name: r.name, team: /^red/i.test(r.name) ? "red" : "blue" });
+        // Equip only what the server reports as unworn (staggered across bots).
+        // Not awaited — the next login in this lane must not wait for an ItemList.
+        bot.equipInventory((equipSlot++) * 250).then((eq) => { if (eq.equipping) console.log(`    ⚙ ${r.name}: equipping ${eq.equipping}`); }).catch(() => {});
         console.log(`  ✓ ${r.name} (${r.role.name})`);
       } catch (e) { console.log(`  ✗ ${r.acc}: ${e}`); }
     }

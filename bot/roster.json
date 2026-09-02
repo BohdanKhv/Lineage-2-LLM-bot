@@ -26,9 +26,9 @@
       6375,
       6376
     ],
-    "enchMax": 20,
+    "enchMax": 16,
     "armorEnch": 8,
-    "armorEnchMax": 20
+    "armorEnchMax": 16
   },
   {
     "slot": 2,
@@ -54,8 +54,8 @@
       5774,
       5786
     ],
-    "enchMax": 20,
-    "armorEnchMax": 20,
+    "enchMax": 16,
+    "armorEnchMax": 16,
     "weaponName": "Saint Spear - Health",
     "weaponGrade": "s"
   },
@@ -83,8 +83,8 @@
       6375,
       6376
     ],
-    "enchMax": 20,
-    "armorEnchMax": 20,
+    "enchMax": 16,
+    "armorEnchMax": 16,
     "weaponName": "Forgotten Blade - Health",
     "weaponGrade": "s"
   },
@@ -94,7 +94,7 @@
     "name": "Sagittarius",
     "role": "archer",
     "weapon": "7577",
-    "ench": 50,
+    "ench": 0,
     "armor": "light",
     "skills": [
       101,
@@ -114,8 +114,8 @@
     ],
     "weaponName": "Draconic Bow - Focus",
     "weaponGrade": "s",
-    "enchMax": 20,
-    "armorEnchMax": 20
+    "enchMax": 16,
+    "armorEnchMax": 16
   },
   {
     "slot": 5,
@@ -143,8 +143,8 @@
     ],
     "weaponName": "Angel Slayer - Haste",
     "weaponGrade": "s",
-    "enchMax": 27,
-    "armorEnchMax": 20
+    "enchMax": 16,
+    "armorEnchMax": 16
   },
   {
     "slot": 6,
@@ -152,7 +152,7 @@
     "name": "Archmage",
     "role": "melee",
     "weapon": "6608",
-    "ench": 8,
+    "ench": 1,
     "armor": "robe",
     "skills": [
       1231,
@@ -171,8 +171,8 @@
     ],
     "weaponName": "Arcana Mace - Acumen",
     "weaponGrade": "s",
-    "enchMax": 28,
-    "armorEnchMax": 20
+    "enchMax": 16,
+    "armorEnchMax": 16
   },
   {
     "slot": 7,
@@ -180,7 +180,7 @@
     "name": "MysticMuse",
     "role": "melee",
     "weapon": "5643",
-    "ench": 10,
+    "ench": 6,
     "armor": "robe",
     "skills": [
       1235,
@@ -199,8 +199,8 @@
     ],
     "weaponName": "Sword of Miracles - Acumen",
     "weaponGrade": "a",
-    "armorEnchMax": 20,
-    "enchMax": 30
+    "armorEnchMax": 16,
+    "enchMax": 16
   },
   {
     "slot": 8,
@@ -208,7 +208,7 @@
     "name": "Titan",
     "role": "melee",
     "weapon": "6605",
-    "ench": 12,
+    "ench": 1,
     "armor": "light",
     "skills": [
       315,
@@ -218,8 +218,8 @@
       36,
       176
     ],
-    "enchMax": 212,
-    "armorEnchMax": 20,
+    "enchMax": 16,
+    "armorEnchMax": 16,
     "weaponName": "Heavens Divider - Haste",
     "weaponGrade": "s",
     "armorSet": 35,
@@ -239,7 +239,7 @@
     "name": "GrandKhavatari",
     "role": "melee",
     "weapon": "6602",
-    "ench": 12,
+    "ench": 1,
     "armor": "light",
     "skills": [
       54,
@@ -249,7 +249,7 @@
       281,
       120
     ],
-    "armorEnchMax": 20,
+    "armorEnchMax": 16,
     "weaponName": "Demon Splinter - Focus",
     "weaponGrade": "s",
     "armorSet": 35,
@@ -261,7 +261,8 @@
       547,
       5769,
       5781
-    ]
+    ],
+    "enchMax": 16
   },
   {
     "slot": 10,
@@ -269,7 +270,7 @@
     "name": "Dominator",
     "role": "melee",
     "weapon": "6608",
-    "ench": 10,
+    "ench": 1,
     "armor": "robe",
     "skills": [
       1416,
@@ -279,8 +280,8 @@
       1246,
       1099
     ],
-    "enchMax": 30,
-    "armorEnchMax": 20,
+    "enchMax": 16,
+    "armorEnchMax": 16,
     "weaponName": "Arcana Mace - Acumen",
     "weaponGrade": "s",
     "armorSet": 33,
@@ -300,7 +301,7 @@
     "name": "Soultaker",
     "role": "melee",
     "weapon": "6608",
-    "ench": 10,
+    "ench": 1,
     "armor": "robe",
     "skills": [
       1148,
@@ -310,8 +311,8 @@
       1172,
       1069
     ],
-    "enchMax": 20,
-    "armorEnchMax": 20,
+    "enchMax": 16,
+    "armorEnchMax": 16,
     "weaponName": "Arcana Mace - Acumen",
     "weaponGrade": "s",
     "armorSet": 33,
@@ -331,7 +332,7 @@
     "name": "Cardinal",
     "role": "melee",
     "weapon": "6608",
-    "ench": 10,
+    "ench": 1,
     "armor": "robe",
     "skills": [
       1399,
@@ -340,8 +341,8 @@
       1177,
       1069
     ],
-    "enchMax": 20,
-    "armorEnchMax": 20,
+    "enchMax": 16,
+    "armorEnchMax": 16,
     "weaponName": "Arcana Mace - Acumen",
     "weaponGrade": "s",
     "armorSet": 33,
@@ -361,7 +362,7 @@
     "name": "StormScreamer",
     "role": "melee",
     "weapon": "6608",
-    "ench": 10,
+    "ench": 1,
     "armor": "robe",
     "skills": [
       1239,
@@ -370,8 +371,8 @@
       1148,
       1417
     ],
-    "armorEnchMax": 20,
-    "enchMax": 30,
+    "armorEnchMax": 16,
+    "enchMax": 16,
     "weaponName": "Arcana Mace - Acumen",
     "weaponGrade": "s",
     "armorSet": 33,

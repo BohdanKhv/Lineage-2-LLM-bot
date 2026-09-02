@@ -17,30 +17,18 @@ class GameClientPacket extends ReceivablePacket_1.default {
     }
     readItem() {
         const item = new L2Item_1.default();
+        const _type1 = this.readH();
         item.ObjectId = this.readD();
         item.Id = this.readD();
-        const _location = this.readD();
-        item.Count = this.readQ();
-        const _type = this.readH();
-        const _customType = this.readH();
+        item.Count = this.readD();
+        const _type2 = this.readH();
+        const _customType1 = this.readH();
         item.IsEquipped = this.readH() === 1;
-        const _bodyPart = this.readD();
+        item.BodyPart = this.readD();
         item.EnchantLevel = this.readH();
         const _customType2 = this.readH();
         item.AugmentBonus = this.readD();
         const _mana = this.readD();
-        const _time = this.readD();
-        const attackElementType = this.readH();
-        item.AttackElementVal = this.readH();
-        item.DefAttFire = this.readH();
-        item.DefAttWater = this.readH();
-        item.DefAttWind = this.readH();
-        item.DefAttEarth = this.readH();
-        item.DefAttHolly = this.readH();
-        item.DefAttUnholly = this.readH();
-        const _enchantOption1 = this.readH();
-        const _enchantOption2 = this.readH();
-        const _enchantOption3 = this.readH();
         return item;
     }
 }

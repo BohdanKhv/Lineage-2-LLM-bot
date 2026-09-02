@@ -33,6 +33,7 @@ export default class L2Item extends L2Object {
     static readonly SLOT_BABYPET: number;
     static readonly SLOT_GREATWOLF: number;
     static readonly SLOT_MULTI_ALLWEAPON: number;
+    BodyPart: number;
     private _attackElementType;
     private _attackElementVal;
     private _defAttFire;

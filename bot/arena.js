@@ -11,6 +11,7 @@
 // Role + skill rotation per bot comes from its CLASS via the roster config
 // (comp.js / roster.json), so any character fights the way its class is tuned.
 //   node arena.js [path-to-match.json]
+//   env L2_SPAWN_AT=<player>  -> spawn the two teams facing each other next to that player
 const fs = require("fs");
 const path = require("path");
 const ArenaBot = require("./arena-bot");
@@ -25,6 +26,7 @@ const MYSQL = "C:\\Program Files\\MariaDB 10.6\\bin\\mysql.exe";
 const sh = (sql) => execFileSync(MYSQL, ["-uroot", "-proot", "-D", "elmore", "-e", sql], { encoding: "utf8" });
 const shN = (sql) => execFileSync(MYSQL, ["-uroot", "-proot", "-D", "elmore", "-sN", "-e", sql], { encoding: "utf8" });
 const esc = (s) => String(s).replace(/'/g, "");
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const matchPath = process.argv[2] || path.join(__dirname, "match.json");
 const match = JSON.parse(fs.readFileSync(matchPath, "utf8"));
@@ -45,61 +47,102 @@ function classMap(names) {
   return map;
 }
 
-// Full HP, gear back to INVENTORY, and position the two teams as facing rows.
+// Where to spawn: next to the player named in L2_SPAWN_AT (their last-saved
+// position) if that character exists, else the arena spot.
+const ARENA = { cx: 145200, cy: -68800, z: -3746 };
+function spawnCenter() {
+  const who = (process.env.L2_SPAWN_AT || "").trim();
+  if (who) {
+    const row = shN(`SELECT x, y, z FROM characters WHERE LOWER(char_name)=LOWER('${esc(who)}');`).trim();
+    if (row) { const [x, y, z] = row.split(/\t/).map(Number); return { cx: x, cy: y, z, where: `next to ${who}` }; }
+    console.log(`  ! no character named "${who}" — spawning at the arena`);
+  }
+  return { ...ARENA, where: "arena" };
+}
+
+// Full HP/MP/CP and the two teams as facing rows (7 per row) around the spawn
+// centre. Gear already worn stays worn — equipped items persist across relogs.
 // CRITICAL: never spawn two bots on the same coordinate (melee whiffs at distance 0).
-const CX = 145200, CY = -68800, Z = -3746, GAP = 45, ROW = 55;
+const GAP = 45, ROW = 55;
 function resetForBattle() {
+  const c = spawnCenter();
   const names = allMembers.map((m) => `'${esc(m.name)}'`).join(",");
-  let sql = `UPDATE characters SET curHp=99999, curMp=99999 WHERE char_name IN (${names});
-    UPDATE items i JOIN characters c ON i.owner_id=c.charId SET i.loc='INVENTORY'
-      WHERE c.char_name IN (${names}) AND i.loc='PAPERDOLL'
-        AND (i.item_id IN (SELECT item_id FROM weapon) OR i.item_id IN (SELECT item_id FROM armor) OR i.item_id IN (17,1341,1342,1343,1344,1345));\n`;
+  let sql = `UPDATE characters SET curHp=99999, curMp=99999, curCp=99999 WHERE char_name IN (${names});\n`;
   [teamA, teamB].forEach((team, t) => {
-    const y = t === 0 ? CY - ROW : CY + ROW;
     team.members.forEach((m, i) => {
-      const x = CX + Math.round((i - (team.members.length - 1) / 2) * GAP);
-      sql += `UPDATE characters SET x=${x}, y=${y}, z=${Z} WHERE char_name='${esc(m.name)}';\n`;
+      const x = c.cx + ((i % 7) - 3) * GAP;
+      const y = c.cy + (t === 0 ? -1 : 1) * (ROW + Math.floor(i / 7) * 50);
+      sql += `UPDATE characters SET x=${x}, y=${y}, z=${c.z} WHERE char_name='${esc(m.name)}';\n`;
     });
   });
   sh(sql);
+  console.log(`spawning ${allMembers.length} bots ${c.where} @ ${c.cx},${c.cy}`);
 }
 
-function gearMap(accounts) {
-  const out = shN(`SELECT LOWER(c.account_name), i.object_id FROM items i JOIN characters c ON i.owner_id=c.charId
-    WHERE i.loc='INVENTORY' AND (i.item_id IN (SELECT item_id FROM weapon) OR i.item_id IN (SELECT item_id FROM armor) OR i.item_id IN (17,1341,1342,1343,1344,1345))
-      AND LOWER(c.account_name) IN (${accounts.map((a) => `'${esc(a)}'`).join(",")}) ORDER BY c.account_name, i.item_id;`);
-  const map = {};
-  out.trim().split(/\r?\n/).forEach((l) => { const [a, o] = l.split(/\t/); if (a) (map[a.trim()] = map[a.trim()] || []).push(+o); });
-  return map;
+// Login raced against a timeout + retried — an account the server hasn't
+// freed yet (right after a mass logout) makes enter() hang forever otherwise.
+async function enterWithRetry(acc, tries = 4) {
+  for (let t = 1; ; t++) {
+    const nb = new ArenaBot(acc, acc);
+    try {
+      await Promise.race([nb.enter(), sleep(8000).then(() => { throw new Error("login timeout"); })]);
+      return nb;
+    } catch (err) {
+      try { nb.disconnect(); } catch (e2) { /* noop */ }
+      if (t >= tries) throw err;
+      await sleep(1500 * t);
+    }
+  }
 }
 
 async function main() {
   console.log(`ARENA: ${teamA.label} (${teamA.members.length}) vs ${teamB.label} (${teamB.members.length})${match.llm ? " — LLM-driven" : ""}`);
+  // A just-killed session is still being saved by the server — wait for
+  // everyone to show offline before we reset positions / log in.
+  const nameList = allMembers.map((m) => `'${esc(m.name)}'`).join(",");
+  for (let i = 0; i < 20; i++) {
+    const n = +shN(`SELECT COUNT(*) FROM characters WHERE online=1 AND char_name IN (${nameList});`).trim();
+    if (!n) break;
+    if (i === 0) console.log(`waiting for ${n} bot(s) to finish logging out...`);
+    await sleep(500);
+  }
   resetForBattle();
   const classes = classMap(allMembers.map((m) => m.name));
-  const gear = gearMap(allMembers.map((m) => m.account));
 
   const namesA = new Set(teamA.members.map((m) => m.name));
   const namesB = new Set(teamB.members.map((m) => m.name));
 
+  // Concurrent boot (8 at a time); each bot equips only what the SERVER
+  // reports as unworn, staggered so a big roster doesn't broadcast at once.
+  const t0 = Date.now();
   const bots = [];
-  for (const m of allMembers) {
-    const bot = new ArenaBot(m.account, m.account);
-    const cls = byClass[classes[m.name]] || { role: "melee", skills: null, name: `class${classes[m.name]}` };
-    try {
-      await bot.enter();
-      (gear[m.account] || []).forEach((o, k) => setTimeout(() => bot.useItem(o), k * 150));
-      bots.push({ acc: m.account, name: m.name, team: m.team, bot, cls });
-      console.log(`  ✓ ${m.name} [${m.team.label}] — ${cls.name} (${cls.role})`);
-    } catch (e) { console.log(`  ✗ ${m.name}: ${e}`); }
-    await new Promise((r) => setTimeout(r, 1200));
-  }
+  const queue = [...allMembers];
+  let equipSlot = 0;
+  await Promise.all(Array.from({ length: Math.min(8, queue.length) }, async (_, w) => {
+    await sleep(w * 120);
+    while (queue.length) {
+      const m = queue.shift();
+      const cls = byClass[classes[m.name]] || { role: "melee", skills: null, name: `class${classes[m.name]}` };
+      try {
+        const bot = await enterWithRetry(m.account);
+        bots.push({ acc: m.account, name: m.name, team: m.team, bot, cls });
+        // Not awaited — the next login in this lane must not wait for an ItemList.
+        bot.equipInventory((equipSlot++) * 250).then((eq) => { if (eq.equipping) console.log(`    ⚙ ${m.name}: equipping ${eq.equipping}`); }).catch(() => {});
+        console.log(`  ✓ ${m.name} [${m.team.label}] — ${cls.name} (${cls.role})`);
+      } catch (e) { console.log(`  ✗ ${m.name}: ${e.message || e}`); }
+    }
+  }));
+  console.log(`  … ${bots.length}/${allMembers.length} in world in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
 
   console.log(`\n${bots.length} bots in world, armed. Starting battle in 3s...`);
-  await new Promise((r) => setTimeout(r, 3000));
+  await sleep(3000);
 
+  // Enemies = only the OTHER team's bots that actually booted into this match.
+  // Never anyone else — a human clan-mate, a GM, a bystander at the spawn.
+  const bootedA = new Set(bots.filter((b) => b.team === teamA).map((b) => b.name));
+  const bootedB = new Set(bots.filter((b) => b.team === teamB).map((b) => b.name));
   bots.forEach(({ team, bot, cls }) => {
-    const enemySet = team === teamA ? namesB : namesA;
+    const enemySet = team === teamA ? bootedB : bootedA;
     const isEnemy = (name) => enemySet.has(name);
     const opts = { role: cls.role, skills: cls.skills };
     if (match.llm) bot.llmBattle(isEnemy, opts);

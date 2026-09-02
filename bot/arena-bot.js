@@ -7,6 +7,7 @@ const RequestDuelStart = require("./vendor/l2js-client/dist/network/outgoing/gam
 const RequestDuelAnswerStart = require("./vendor/l2js-client/dist/network/outgoing/game/RequestDuelAnswerStart").default;
 const Action = require("./vendor/l2js-client/dist/network/outgoing/game/Action").default;
 const RequestMagicSkillUse = require("./vendor/l2js-client/dist/network/outgoing/game/RequestMagicSkillUse").default;
+const RequestItemList = require("./vendor/l2js-client/dist/network/outgoing/game/RequestItemList").default;
 const llm = require("./llm");
 
 class ArenaBot {
@@ -132,6 +133,25 @@ class ArenaBot {
     this.client.GameClient.sendPacket(new RequestDuelAnswerStart(party ? 1 : 0, 1));
   }
   cast(skillId, objectId) { if (objectId) this.client.setTarget?.(objectId); this.client.cast(skillId); }
+
+  // Equip whatever provisioned gear the SERVER says is not yet worn. Decided
+  // from the ItemList the server sends at EnterWorld (each item carries an
+  // equipped flag) — never from the DB, whose `loc` only updates on save:
+  // a stale DB made us UseItem already-worn gear, and UseItem TOGGLES, so bots
+  // stripped naked. Only our provisioned object-id range is touched (no potions).
+  async equipInventory(startDelayMs = 0, perItemMs = 150) {
+    try { this.client.GameClient.sendPacket(new RequestItemList()); } catch (e) { /* not in world */ }
+    const t0 = Date.now();
+    let items = [];
+    while (Date.now() - t0 < 5000) {
+      items = Array.from(this.client.InventoryItems || []);
+      if (items.length) break;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    const todo = items.filter((it) => !it.IsEquipped && it.ObjectId >= 310000000 && it.ObjectId < 400000000 && it.BodyPart);
+    todo.forEach((it, k) => setTimeout(() => this.useItem(it.ObjectId), startDelayMs + k * perItemMs));
+    return { seen: items.length, equipping: todo.length };
+  }
   say(text) { this.client.say(text); }
   useItem(objectId) { this.client.useItem(objectId); }
 
