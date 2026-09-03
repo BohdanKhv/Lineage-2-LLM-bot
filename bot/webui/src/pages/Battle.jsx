@@ -159,8 +159,8 @@ export default function Battle({ notify }) {
           {mode === "team" && (
             <label className="row" style={{ gap: 8 }}>
               Team size
-              <input type="number" min={1} max={50} value={size} style={{ width: 70 }}
-                onChange={(e) => setSize(Math.max(1, Math.min(50, +e.target.value || 1)))} />
+              <input type="number" min={1} max={500} value={size} style={{ width: 70 }}
+                onChange={(e) => setSize(Math.max(1, Math.min(500, +e.target.value || 1)))} />
               <span className="muted" style={{ fontSize: 12 }}>
                 per team — beyond 7, create characters on Manage &amp; provision; extras reuse the roster classes
               </span>

@@ -314,7 +314,7 @@ app.post("/api/battle/start", async (req, res) => {
       }, null, 2));
       args = ["arena.js"];
     }
-    else args = ["battle.js", String(Math.max(1, Math.min(50, parseInt(size, 10) || 7)))];
+    else args = ["battle.js", String(Math.max(1, Math.min(500, parseInt(size, 10) || 7)))];
     // spawnAt: every engine spawns its bots next to this player (env passthrough).
     const env = {};
     if (llm) env.L2_LLM = "1";
