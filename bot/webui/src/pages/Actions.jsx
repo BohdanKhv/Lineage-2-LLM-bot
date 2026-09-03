@@ -7,6 +7,7 @@ export default function Actions({ notify }) {
   const [online, setOnline] = useState({ n: 0, total: 0 });
   const [gs, setGs] = useState("?");
   const [summonTo, setSummonTo] = useState("Admin");
+  const [buffWho, setBuffWho] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -77,6 +78,15 @@ export default function Actions({ notify }) {
             hint="Full bars for everyone; revives the dead." />
           <Btn label="⟲ Respawn at arena" onClick={() => run("Respawn", () => api.squad("respawn"))}
             hint="Restore + regroup at the arena spot." />
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 280 }}>
+            <div className="row" style={{ gap: 6 }}>
+              <input value={buffWho} onChange={(e) => setBuffWho(e.target.value)} style={{ width: 130 }} placeholder="everyone" />
+              <button className="primary" disabled={busy} onClick={() => run(`Buff ${buffWho.trim() || "everyone"}`, () => api.buff(buffWho.trim() ? buffWho.split(/[,\s]+/).filter(Boolean) : []))}>
+                ✨ Buff
+              </button>
+            </div>
+            <span className="muted" style={{ fontSize: 11 }}>Full warrior/mage buff set (30 min). Empty = every bot. A name = only that character — even yours (log out first, buff, log in).</span>
+          </div>
           <Btn label="⬆ Everyone → level 80" onClick={() => run("Level 80", () => api.squad("level"))}
             hint="Max level for all bots (sets the matching exp)." />
           <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 260 }}>

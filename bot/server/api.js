@@ -579,6 +579,51 @@ app.post("/api/gm", async (req, res) => {
   } catch (e) { err(res, e); }
 });
 
+// ------------------------------------------------------------------ buffs ----
+// Full buff set (warrior or mage by roster role) via the server's saved-effects
+// table, applied at login. Body: { names: [] } (empty = every bot).
+//   commander running + bot names -> the commander relogs them, injecting rows
+//   between logout-save and login (a logout would overwrite the table).
+//   idle, or a non-bot name (e.g. your Admin) -> rows written now; that
+//   character must be OFFLINE and then log in (an online logout wipes them).
+const { buffSql } = require("../buffs");
+app.post("/api/squad/buff", async (req, res) => {
+  try {
+    const names = Array.isArray(req.body && req.body.names) ? req.body.names.map(String).filter(Boolean) : [];
+    const comp = loadComp();
+    const roleOf = (name) => {
+      const m = name.match(/^(Red|Blue)(\d+)$/i);
+      if (!m) return "melee";
+      const c = comp[(parseInt(m[2], 10) - 1) % comp.length];
+      return (c && c.role) || "melee";
+    };
+    const botRe = "^(Red|Blue)[0-9]+" + "$";
+    const rows = await q(
+      names.length
+        ? `SELECT charId AS id, char_name AS name, online FROM characters WHERE char_name IN (${names.map((_, i) => `:n${i}`).join(",")})`
+        : `SELECT charId AS id, char_name AS name, online FROM characters WHERE char_name REGEXP '${botRe}'`,
+      Object.fromEntries(names.map((n, i) => [`n${i}`, n]))
+    );
+    if (!rows.length) return res.status(404).json({ error: "no such character(s)" });
+    const isBot = (n) => /^(Red|Blue)\d+$/i.test(n);
+    const viaCommander = childKind === "commander" && child && rows.every((r) => isBot(r.name));
+    if (viaCommander) {
+      child.stdin.write((names.length ? `buff ${rows.map((r) => r.name).join(",")}` : "buff") + "\n");
+      return res.json({ ok: true, via: "commander", count: rows.length, note: `buffing ${rows.length} bot(s) — quick relog, watch the log` });
+    }
+    let sql = "";
+    rows.forEach((r) => { sql += buffSql(Number(r.id), roleOf(r.name)); });
+    for (const stmt of sql.split(/;\s*\n/).map((x) => x.trim()).filter(Boolean)) await q(stmt);
+    const online = rows.filter((r) => r.online).map((r) => r.name);
+    res.json({
+      ok: true, via: "db", count: rows.length,
+      note: online.length
+        ? `buffs saved for ${rows.length}; ${online.join(", ")} ${online.length > 1 ? "are" : "is"} ONLINE — log out FIRST (a logout overwrites saved buffs), then log in`
+        : `buffs saved for ${rows.length} — applied on next login`,
+    });
+  } catch (e) { err(res, e); }
+});
+
 // ---------------------------------------------------- gameserver control -----
 // The gameserver loads clans/crests/etc. at BOOT — clan and crest changes only
 // take effect after a restart. Launch mirrors game/start.bat, from D:\l2srv

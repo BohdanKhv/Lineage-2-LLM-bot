@@ -27,7 +27,7 @@
       6376
     ],
     "enchMax": 16,
-    "armorEnch": 8,
+    "armorEnch": 6,
     "armorEnchMax": 16
   },
   {
@@ -57,7 +57,8 @@
     "enchMax": 16,
     "armorEnchMax": 16,
     "weaponName": "Saint Spear - Health",
-    "weaponGrade": "s"
+    "weaponGrade": "s",
+    "armorEnch": 6
   },
   {
     "slot": 3,
@@ -86,7 +87,8 @@
     "enchMax": 16,
     "armorEnchMax": 16,
     "weaponName": "Forgotten Blade - Health",
-    "weaponGrade": "s"
+    "weaponGrade": "s",
+    "armorEnch": 6
   },
   {
     "slot": 4,
@@ -115,14 +117,15 @@
     "weaponName": "Draconic Bow - Focus",
     "weaponGrade": "s",
     "enchMax": 16,
-    "armorEnchMax": 16
+    "armorEnchMax": 16,
+    "armorEnch": 6
   },
   {
     "slot": 5,
-    "classId": 93,
-    "name": "Adventurer",
-    "role": "dagger",
-    "weapon": "6592",
+    "classId": 92,
+    "name": "Sagittarius",
+    "role": "archer",
+    "weapon": "7577",
     "ench": 7,
     "armor": "light",
     "skills": [
@@ -141,10 +144,11 @@
       6380,
       6381
     ],
-    "weaponName": "Angel Slayer - Haste",
+    "weaponName": "Draconic Bow - Focus",
     "weaponGrade": "s",
     "enchMax": 16,
-    "armorEnchMax": 16
+    "armorEnchMax": 16,
+    "armorEnch": 6
   },
   {
     "slot": 6,
@@ -172,7 +176,8 @@
     "weaponName": "Arcana Mace - Acumen",
     "weaponGrade": "s",
     "enchMax": 16,
-    "armorEnchMax": 16
+    "armorEnchMax": 16,
+    "armorEnch": 6
   },
   {
     "slot": 7,
@@ -180,7 +185,7 @@
     "name": "MysticMuse",
     "role": "melee",
     "weapon": "5643",
-    "ench": 6,
+    "ench": 10,
     "armor": "robe",
     "skills": [
       1235,
@@ -200,7 +205,8 @@
     "weaponName": "Sword of Miracles - Acumen",
     "weaponGrade": "a",
     "armorEnchMax": 16,
-    "enchMax": 16
+    "enchMax": 50,
+    "armorEnch": 6
   },
   {
     "slot": 8,
@@ -218,7 +224,7 @@
       36,
       176
     ],
-    "enchMax": 16,
+    "enchMax": 50,
     "armorEnchMax": 16,
     "weaponName": "Heavens Divider - Haste",
     "weaponGrade": "s",
@@ -231,14 +237,15 @@
       547,
       5769,
       5781
-    ]
+    ],
+    "armorEnch": 6
   },
   {
     "slot": 9,
-    "classId": 114,
-    "name": "GrandKhavatari",
-    "role": "melee",
-    "weapon": "6602",
+    "classId": 92,
+    "name": "Sagittarius",
+    "role": "archer",
+    "weapon": "7577",
     "ench": 1,
     "armor": "light",
     "skills": [
@@ -247,10 +254,11 @@
       35,
       284,
       281,
-      120
+      120,
+      101
     ],
     "armorEnchMax": 16,
-    "weaponName": "Demon Splinter - Focus",
+    "weaponName": "Draconic Bow - Focus",
     "weaponGrade": "s",
     "armorSet": 35,
     "armorSetName": "Tallum Leather Armor",
@@ -262,13 +270,14 @@
       5769,
       5781
     ],
-    "enchMax": 16
+    "enchMax": 50,
+    "armorEnch": 6
   },
   {
     "slot": 10,
-    "classId": 115,
-    "name": "Dominator",
-    "role": "melee",
+    "classId": 40,
+    "name": "Spellhowler",
+    "role": "mage",
     "weapon": "6608",
     "ench": 1,
     "armor": "robe",
@@ -278,7 +287,9 @@
       1090,
       1104,
       1246,
-      1099
+      1099,
+      1239,
+      1234
     ],
     "enchMax": 16,
     "armorEnchMax": 16,
@@ -293,13 +304,14 @@
       512,
       5767,
       5779
-    ]
+    ],
+    "armorEnch": 6
   },
   {
     "slot": 11,
-    "classId": 95,
-    "name": "Soultaker",
-    "role": "melee",
+    "classId": 103,
+    "name": "MysticMuse",
+    "role": "mage",
     "weapon": "6608",
     "ench": 1,
     "armor": "robe",
@@ -309,7 +321,8 @@
       1159,
       1170,
       1172,
-      1069
+      1295,
+      1235
     ],
     "enchMax": 16,
     "armorEnchMax": 16,
@@ -324,7 +337,8 @@
       512,
       5767,
       5779
-    ]
+    ],
+    "armorEnch": 6
   },
   {
     "slot": 12,
@@ -352,13 +366,14 @@
       512,
       5767,
       5779
-    ]
+    ],
+    "armorEnch": 6
   },
   {
     "slot": 13,
     "classId": 110,
     "name": "StormScreamer",
-    "role": "melee",
+    "role": "mage",
     "weapon": "6608",
     "ench": 1,
     "armor": "robe",
@@ -382,6 +397,7 @@
       512,
       5767,
       5779
-    ]
+    ],
+    "armorEnch": 6
   }
 ]

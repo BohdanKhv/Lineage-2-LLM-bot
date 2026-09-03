@@ -10,13 +10,16 @@
 const ArenaBot = require("./arena-bot");
 const { execFileSync } = require("child_process");
 const { COMP } = require("./comp");
+const { buffSql } = require("./buffs");
 process.on("unhandledRejection", (r) => {
   const m = String(r && r.message ? r.message : r);
   if (!/Connection is closed|Incomplete packet/.test(m)) console.error("unhandled:", m);
 });
 
 const MYSQL = "C:\\Program Files\\MariaDB 10.6\\bin\\mysql.exe";
-const sh = (sql) => execFileSync(MYSQL, ["-uroot", "-proot", "-D", "elmore", "-e", sql], { encoding: "utf8" });
+// SQL goes in via stdin, not `-e`: a 50-bot buff/reset statement exceeds the
+// Windows command-line length limit (spawnSync ENAMETOOLONG).
+const sh = (sql) => execFileSync(MYSQL, ["-uroot", "-proot", "-D", "elmore"], { input: sql, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
 const shN = (sql) => execFileSync(MYSQL, ["-uroot", "-proot", "-D", "elmore", "-sN", "-e", sql], { encoding: "utf8" });
 
 // Full HP/MP/CP and spawn positions. Gear already worn stays worn (equipped
@@ -72,6 +75,9 @@ function parseCommand(msg, speaker) {
   if (["respawn", "reset", "arena"].includes(m)) { command.targetName = null; command.reset = { mode: "respawn", t: Date.now() }; return "respawning at the arena"; }
   // level / level 80 -> everyone to level 80 (relog cycle; server derives level from exp)
   if (/^(level|lvl)(\s*80)?$/.test(m)) { command.reset = { mode: "level", t: Date.now() }; return "setting everyone to level 80"; }
+  // buff -> full buff set on every bot; buff Red1,Red2 -> only those (relog cycle)
+  const bm = m.match(/^buff(?:\s+(.+))?$/);
+  if (bm) { command.reset = { mode: "buff", only: bm[1] ? bm[1].split(/[,\s]+/).map((x) => x.trim().toLowerCase()).filter(Boolean) : null, t: Date.now() }; return bm[1] ? "buffing " + bm[1] : "buffing everyone"; }
   return null;
 }
 
@@ -223,26 +229,35 @@ async function main() {
   // it revives dead bots too. respawn also regroups at the arena cluster.
   // BATCHED for speed: disconnect ALL at once, one bulk SQL, then log back in
   // concurrently — ~5-8s for the whole squad instead of ~2s per bot.
-  async function doReset(mode) {
+  async function doReset(mode, only = null) {
+    // only: lowercase bot names to restrict the cycle to (buff Red1,Red2)
+    const targets = only ? bots.filter((e) => only.includes(e.name.toLowerCase()) || only.includes(e.acc)) : bots;
+    if (!targets.length) { console.log(mode + ": none of " + only.join(",") + " are in this session"); return; }
     const t0 = Date.now();
-    console.log(`${mode}: relogging ${bots.length} bots (batched)...`);
-    bots.forEach((e) => { try { e.bot.disconnect(); } catch (err) { /* already gone */ } });
+    console.log(`${mode}: relogging ${targets.length} bots (batched)...`);
+    targets.forEach((e) => { try { e.bot.disconnect(); } catch (err) { /* already gone */ } });
     await sleep(2500); // a mass logout takes the server a moment to persist + free the accounts
     // One bulk UPDATE: full HP/MP/CP for all, + arena-cluster coords for respawn.
-    const names = bots.map((e) => `'${e.name.replace(/'/g, "")}'`).join(",");
+    const names = targets.map((e) => `'${e.name.replace(/'/g, "")}'`).join(",");
     // level: the server re-derives level from exp at login, so exp is what matters
     // (4268429310 is a known-good level-80 value — it's what the Admin char has).
     const lvl = mode === "level" ? ", level=80, exp=4268429310" : "";
     let sql = `UPDATE characters SET curHp=99999, curMp=99999, curCp=99999${lvl} WHERE char_name IN (${names});`;
     if (mode === "respawn") {
-      bots.forEach((e, i) => {
+      targets.forEach((e, i) => {
         const x = 145200 + ((i % 7) - 3) * 45, y = -68800 + (Math.floor(i / 7) - 1) * 45;
         sql += `\nUPDATE characters SET x=${x}, y=${y}, z=-3746 WHERE char_name='${e.name.replace(/'/g, "")}';`;
       });
     }
+    if (mode === "buff") {
+      // Saved-effects rows go in AFTER the logout-save (which would overwrite them) and BEFORE login.
+      const ids = shN("SELECT char_name, charId FROM characters WHERE char_name IN (" + targets.map((e) => "'" + e.name.replace(/'/g, "") + "'").join(",") + ");")
+        .trim().split(/\r?\n/).map((l) => l.split(/\t/));
+      ids.forEach(([n, id]) => { const e = targets.find((t) => t.name === n); if (e && id) sql += buffSql(+id, e.role.role); });
+    }
     sh(sql);
-    await reloginAll(bots.map((e, i) => [e, i]));
-    console.log(`${mode} complete — ${bots.length} bots ${mode === "level" ? "at level 80," : "at"} full HP/MP/CP in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+    await reloginAll(targets.map((e, i) => [e, i]));
+    console.log(`${mode} complete — ${targets.length} bots ${mode === "level" ? "at level 80," : "at"} full HP/MP/CP in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
   }
 
   let lastSummonT = 0, lastResetT = 0, busyCycle = false;
@@ -256,7 +271,7 @@ async function main() {
     const r = command.reset;
     if (r && r.t > lastResetT && !busyCycle) {
       lastResetT = r.t; command.reset = null; busyCycle = true;
-      doReset(r.mode).finally(() => { busyCycle = false; });
+      doReset(r.mode, r.only || null).finally(() => { busyCycle = false; });
     }
   }, 400);
 
@@ -280,7 +295,7 @@ async function main() {
     console.log(`[${new Date().toLocaleTimeString()}] focus: ${command.targetName || "(none)"}  ·  ${bots.filter(({ bot }) => !bot.isDead()).length}/${bots.length} up`);
   }, 3000);
 
-  console.log(`\n${bots.length} bots standing by. In game chat: "kill <name>", "attack me", "summon" / "summon <name>", "restore", "respawn", or "stop" — or use the web command box. Ctrl+C to log out.`);
+  console.log(`\n${bots.length} bots standing by. In game chat: "kill <name>", "attack me", "summon" / "summon <name>", "restore", "respawn", "buff" / "buff Red1,Red2", or "stop" — or use the web command box. Ctrl+C to log out.`);
   const shutdown = () => { bots.forEach(({ bot }) => bot.disconnect()); setTimeout(() => process.exit(0), 500); };
   process.on("SIGINT", shutdown);
 }
