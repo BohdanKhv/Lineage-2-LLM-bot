@@ -68,6 +68,9 @@ export default function Actions({ notify }) {
           <Btn label="⏻ Log everyone out" danger disabled={!running}
             onClick={() => run("Log out", () => api.stopBattle().then(() => ({ note: "session ended, bots disconnected" })))}
             hint="Kills the running session." />
+          <Btn label="▶ Start servers" primary disabled={gs === "up" && ls === "up"}
+            onClick={() => run("Start servers", () => api.startServers().then(() => ({ note: "MariaDB → login server → game server; watch the status pills (game server takes ~30-60s)" })))}
+            hint={gs === "up" && ls === "up" ? "Both servers are already up." : "Brings up whichever of MariaDB / login / game server is down."} />
           <Btn label="⟳ Restart gameserver" disabled={gs === "restarting"}
             onClick={() => { if (window.confirm("Restart the gameserver? Everyone in-game (including you) disconnects for ~30-60s.")) run("Gameserver", () => api.restartGameserver().then(() => ({ note: "restarting — watch the Battle log" }))); }}
             hint="Needed after clan / crest / GM changes." />
@@ -95,14 +98,18 @@ export default function Actions({ notify }) {
           </div>
           <Btn label="⬆ Everyone → level 80" onClick={() => run("Level 80", () => api.squad("level"))}
             hint="Max level for all bots (sets the matching exp)." />
-          <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 260 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 420 }}>
             <div className="row" style={{ gap: 6 }}>
-              <input value={summonTo} onChange={(e) => setSummonTo(e.target.value)} style={{ width: 120 }} placeholder="player name" />
-              <button disabled={busy || !isCmd} onClick={() => run(`Summon → ${summonTo}`, () => api.command(`summon ${summonTo.trim() || "Admin"}`).then(() => ({ note: "on their way (far bots teleport)" })))}>
-                ⤵ Summon to
-              </button>
+              <input value={summonTo} onChange={(e) => setSummonTo(e.target.value)} style={{ width: 140 }} placeholder="player or npc name" />
+              <button disabled={busy || !isCmd} onClick={() => run(`Summon → ${summonTo}`, () => api.command(`summon ${summonTo.trim() || "Admin"}`).then(() => ({ note: "on their way (far bots teleport)" })))}>⤵ Summon</button>
+              <button disabled={busy || !isCmd} onClick={() => run(`Follow ${summonTo}`, () => api.command(`follow ${summonTo.trim() || "Admin"}`).then(() => ({ note: "squad follows that player" })))}>👣 Follow</button>
+              <button disabled={busy || !isCmd} onClick={() => run(`Assist ${summonTo}`, () => api.command(`assist ${summonTo.trim() || "Admin"}`).then(() => ({ note: "squad attacks whatever that player attacks" })))}>⚔ Assist</button>
+              <button disabled={busy || !isCmd} onClick={() => run(`Kill ${summonTo}`, () => api.command(`kill ${summonTo.trim()}`).then(() => ({ note: "squad focuses that player / npc" })))}>🎯 Kill</button>
+              <button disabled={busy || !isCmd} onClick={() => run("Stand down", () => api.command("stop").then(() => ({ note: "orders cleared" })))}>✋ Stand down</button>
             </div>
-            <span className="muted" style={{ fontSize: 11 }}>{isCmd ? "Squad regroups around that player." : "Needs a commander session (Log in all)."}</span>
+            <span className="muted" style={{ fontSize: 11 }}>
+              {isCmd ? "Orders for the whole squad. In game chat you can also scope one bot: \"red3 follow admin\", \"red3 assist admin\"; \"look\" lists what's nearby." : "Needs a commander session (Log in all)."}
+            </span>
           </div>
         </div>
       </div>

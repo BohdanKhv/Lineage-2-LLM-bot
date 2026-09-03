@@ -55,13 +55,34 @@ function gearMap(accs) {
   return map;
 }
 
-const command = { targetName: null, summon: null };
+const command = { targetName: null, assistName: null, followName: null, summon: null, perBot: new Map() };
+// Names of the bots in this session (lowercase) — set in main(); lets a command
+// start with a bot name to scope it: "red3 follow admin", "red3 assist admin".
+let botNames = new Set();
 function parseCommand(msg, speaker) {
-  const m = (msg || "").trim().toLowerCase();
-  if (["stop", "peace", "halt", "stand down"].includes(m)) { command.targetName = null; return "standing down"; }
-  if (m === "attack me" || m === "kill me" || m === "get me") { command.targetName = speaker; return `attacking ${speaker}`; }
+  let m = (msg || "").trim().toLowerCase();
+  // optional "<bot> <command...>" prefix -> per-bot order
+  let only = null;
+  const first = m.split(/\s+/)[0];
+  if (botNames.has(first) && m.length > first.length) { only = first; m = m.slice(first.length).trim(); }
+  const setOrder = (patch, label) => {
+    if (only) { command.perBot.set(only, { ...(command.perBot.get(only) || {}), ...patch }); return `${only}: ${label}`; }
+    Object.assign(command, patch); return label;
+  };
+  if (["stop", "peace", "halt", "stand down"].includes(m)) {
+    if (only) { command.perBot.delete(only); return `${only}: standing down`; }
+    command.targetName = null; command.assistName = null; command.followName = null; command.perBot.clear();
+    return "standing down";
+  }
+  if (m === "attack me" || m === "kill me" || m === "get me") return setOrder({ targetName: speaker }, `attacking ${speaker}`);
   const km = m.match(/^kill\s+(.+)$/);
-  if (km) { command.targetName = km[1].trim(); return `focusing ${km[1].trim()}`; }
+  if (km) return setOrder({ targetName: km[1].trim() }, `focusing ${km[1].trim()}`);
+  // follow / assist: "follow me", "follow admin", "assist me", "assist admin"
+  const fm = m.match(/^follow(?:\s+(.+))?$/);
+  if (fm) { const who = !fm[1] || fm[1] === "me" ? speaker : fm[1].trim(); return setOrder({ followName: who }, `following ${who}`); }
+  const am = m.match(/^assist(?:\s+(.+))?$/);
+  if (am) { const who = !am[1] || am[1] === "me" ? speaker : am[1].trim(); return setOrder({ assistName: who, targetName: null }, `assisting ${who}`); }
+  if (m === "look" || m === "who") { command.look = Date.now(); return "looking around"; }
   // summon / come [to me]  -> regroup on the speaker; summon <name> -> on that player
   if (["summon", "summon me", "come", "come to me", "to me", "regroup"].includes(m)) {
     command.targetName = null; command.summon = { name: speaker, t: Date.now() };
@@ -115,6 +136,24 @@ async function main() {
   teams.forEach((t) => teamChars(t).forEach((n, i) =>
     roster.push({ acc: n.toLowerCase(), name: n, role: COMP[i % COMP.length] })));
   const rosterNames = new Set(roster.map((r) => r.name)); // healers heal anyone in the squad
+  botNames = new Set(roster.map((r) => r.name.toLowerCase()));
+  // NPC names for "kill <npc>" and readable status: template id -> name.
+  try {
+    shN("SELECT idTemplate, id, name FROM npc;").trim().split(/\r?\n/).forEach((l) => {
+      const [tpl, id, name] = l.split(/\t/);
+      if (name) { ArenaBot.npcNames.set(+tpl, name); ArenaBot.npcNames.set(+id, name); }
+    });
+    console.log(`npc names loaded: ${ArenaBot.npcNames.size}`);
+  } catch (e) { console.log("npc names: not loaded (" + (e.message || e) + ")"); }
+  // Orders for one bot = global orders overridden by that bot's own.
+  const ordersFor = (name) => {
+    const mine = command.perBot.get(name.toLowerCase()) || {};
+    return {
+      targetName: mine.targetName !== undefined ? mine.targetName : command.targetName,
+      assistName: mine.assistName !== undefined ? mine.assistName : command.assistName,
+      followName: mine.followName !== undefined ? mine.followName : command.followName,
+    };
+  };
 
   // If a previous session was just killed, the server is still saving those
   // characters — wait for them to show offline before we touch anything.
@@ -137,7 +176,7 @@ async function main() {
       if (res && echo) console.log(`\n[${p.CharName}] "${(p.Messages || []).join(" ")}"  ->  ${res}\n`);
     });
     if (role.role === "healer") bot.healerBattle((n) => rosterNames.has(n), { skills: role.skills });
-    else bot.commanderBattle(() => command.targetName, { role: role.role, skills: role.skills });
+    else bot.commanderBattle(() => ordersFor(bot.username), { role: role.role, skills: role.skills });
   };
 
   // Concurrent boot (see battle.js) — sequential logins made big rosters slow.
@@ -292,13 +331,28 @@ async function main() {
     }
   });
 
+  // "look": the first living bot reports what it sees (players + NPCs by name).
+  let lastLook = 0;
+  setInterval(() => {
+    if (!command.look || command.look === lastLook) return;
+    lastLook = command.look;
+    const b = bots.find((e) => !e.bot.isDead());
+    if (!b) return;
+    try {
+      const seen = b.bot.getState().targets.filter((t) => t.name)
+        .sort((x, y) => (x.distance ?? 1e9) - (y.distance ?? 1e9)).slice(0, 25)
+        .map((t) => `${t.name}${t.isNpc ? " (npc)" : ""} @${t.distance ?? "?"}`);
+      console.log(`[look from ${b.name}] ${seen.join(" · ") || "nothing nearby"}`);
+    } catch (e) { /* not ready */ }
+  }, 500);
+
   // Per-bot status for the web panel, plus a human-readable target line.
   setInterval(() => {
     console.log("STATUS " + JSON.stringify(bots.map(({ acc, team, bot }) => ({ acc, team, ...bot.snapshot() }))));
-    console.log(`[${new Date().toLocaleTimeString()}] focus: ${command.targetName || "(none)"}  ·  ${bots.filter(({ bot }) => !bot.isDead()).length}/${bots.length} up`);
+    console.log(`[${new Date().toLocaleTimeString()}] kill: ${command.targetName || "-"}  assist: ${command.assistName || "-"}  follow: ${command.followName || "-"}${command.perBot.size ? "  (+" + command.perBot.size + " per-bot)" : ""}  ·  ${bots.filter(({ bot }) => !bot.isDead()).length}/${bots.length} up`);
   }, 3000);
 
-  console.log(`\n${bots.length} bots standing by. In game chat: "kill <name>", "attack me", "summon" / "summon <name>", "restore", "respawn", "buff" / "buff Red1,Red2", or "stop" — or use the web command box. Ctrl+C to log out.`);
+  console.log(`\n${bots.length} bots standing by. In game chat: "kill <name>", "attack me", "summon" / "summon <name>", "follow [name]", "assist [name]", "kill <player|npc>", "look", "restore", "respawn", "buff", or "stop" — prefix with a bot name to order just that bot (e.g. "red3 follow admin") — or use the web command box. Ctrl+C to log out.`);
   const shutdown = () => { bots.forEach(({ bot }) => bot.disconnect()); setTimeout(() => process.exit(0), 500); };
   process.on("SIGINT", shutdown);
 }

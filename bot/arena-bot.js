@@ -10,7 +10,21 @@ const RequestMagicSkillUse = require("./vendor/l2js-client/dist/network/outgoing
 const RequestItemList = require("./vendor/l2js-client/dist/network/outgoing/game/RequestItemList").default;
 const llm = require("./llm");
 
+// NPC template id -> name (filled by the engine from the DB `npc` table). The
+// server sends most NPCs with an empty name; the library labels them
+// "Mob #<templateId>" / "NPC #<templateId>", which we translate here so that
+// "kill <npc name>" works and status lines read naturally.
+const NPC_NAMES = new Map();
+function resolveName(raw) {
+  const m = /^(?:Mob|NPC) #(\d+)$/.exec(raw || "");
+  if (!m) return raw;
+  let id = parseInt(m[1], 10);
+  if (id > 1000000) id -= 1000000;
+  return NPC_NAMES.get(id) || raw;
+}
+
 class ArenaBot {
+  static get npcNames() { return NPC_NAMES; }
   constructor(username, password, opts = {}) {
     this.username = username;
     this.password = password;
@@ -52,6 +66,11 @@ class ArenaBot {
         this._lastAttacker = p.AttackerObjectId;
         this._lastAttackerAt = Date.now();
       }
+      // Who is attacking whom (for "assist <player>": we hit their victim).
+      if (p && p.AttackerObjectId && p.Subjects && p.Subjects.length) {
+        this._attacks = this._attacks || new Map();
+        this._attacks.set(p.AttackerObjectId, { targetId: p.Subjects[0], t: Date.now() });
+      }
       // Damage taken per creature (last few seconds) — a healer's "who's being hit".
       if (p && Array.isArray(p.Hits)) {
         const now = Date.now();
@@ -63,6 +82,14 @@ class ArenaBot {
           e.total += h.damage; e.at = now;
           this._dmg.set(h.targetId, e);
         }
+      }
+    });
+    // Spell casts reveal a caster's target too (mage players assisting).
+    this.client.GameClient.on("PacketReceived:MagicSkillUse", (e) => {
+      const p = e && e.data && e.data.packet;
+      if (p && p.ActiveCharObjId && p.TargetObjId && p.TargetObjId !== p.ActiveCharObjId) {
+        this._attacks = this._attacks || new Map();
+        this._attacks.set(p.ActiveCharObjId, { targetId: p.TargetObjId, t: Date.now() });
       }
     });
     this._startHeartbeat();
@@ -107,7 +134,8 @@ class ArenaBot {
       .filter((c) => c.ObjectId !== me.ObjectId && !this._dead.has(c.ObjectId))
       .map((c) => ({
         objectId: c.ObjectId,
-        name: c.Name,
+        name: resolveName(c.Name),
+        isNpc: /^(?:Mob|NPC) #\d+$/.test(c.Name || ""),
         hpPercent: c.MaxHp ? Math.round((c.Hp / c.MaxHp) * 100) : undefined,
         x: c.X, y: c.Y, z: c.Z,
         distance: Number.isFinite(c.Distance) ? Math.round(c.Distance) : undefined,
@@ -326,22 +354,45 @@ class ArenaBot {
   // Commander mode: passive until either commanded or attacked.
   //   getTargetName() -> a player name everyone should focus (or null)
   //   Otherwise, retaliate against whoever last hit me (fight back by default).
-  commanderBattle(getTargetName, { role = "melee", skills = null } = {}, intervalMs = 1000) {
+  // getOrders() -> { targetName, assistName, followName } (or a plain target
+  // name string for backwards compatibility). Priority each tick:
+  //   1. kill <name>   — explicit target (player OR npc, names resolved)
+  //   2. assist <name> — whatever that player is currently attacking
+  //   3. fight back    — whoever hit us in the last 15s
+  //   4. follow <name> — stay within ~150 units of that player
+  commanderBattle(getOrders, { role = "melee", skills = null } = {}, intervalMs = 1000) {
     this.stopBattle();
     this._role = role; this._skills = skills; this._curTarget = null;
+    // per-bot offset so followers don't stack on the leader (melee whiffs at distance 0)
+    const ang = Math.random() * Math.PI * 2, rad = 60 + Math.random() * 60;
+    const off = { x: Math.round(Math.cos(ang) * rad), y: Math.round(Math.sin(ang) * rad) };
     this._battle = setInterval(() => {
       if (this.isDead()) return;
       this.autoPotions();
-      const wanted = getTargetName && getTargetName();
-      let target = null;
+      const raw = getOrders ? getOrders() : null;
+      const o = typeof raw === "string" || raw == null ? { targetName: raw || null } : raw;
       const view = this.getState().targets;
-      if (wanted) {
-        target = view.find((t) => (t.name || "").toLowerCase() === wanted.toLowerCase());
+      const byName = (n) => n && view.find((t) => (t.name || "").toLowerCase() === String(n).toLowerCase());
+      const now = Date.now();
+      let target = null;
+      if (o.targetName) target = byName(o.targetName);
+      if (!target && o.assistName) {
+        const leader = byName(o.assistName);
+        const a = leader && this._attacks && this._attacks.get(leader.objectId);
+        if (a && now - a.t < 6000) target = view.find((t) => t.objectId === a.targetId);
       }
-      if (!target && this._lastAttacker && Date.now() - (this._lastAttackerAt || 0) < 15000) {
+      if (!target && this._lastAttacker && now - (this._lastAttackerAt || 0) < 15000) {
         target = view.find((t) => t.objectId === this._lastAttacker);
       }
-      if (target) this.engage(target, role, skills);
+      if (target) { this.engage(target, role, skills); return; }
+      this._curTargetName = null;
+      if (o.followName) {
+        const leader = byName(o.followName);
+        if (leader && Number.isFinite(leader.x) && (leader.distance ?? 0) > 150) {
+          this._curTargetName = "follow " + leader.name;
+          this.moveTo(leader.x + off.x, leader.y + off.y, leader.z);
+        } else if (leader) this._curTargetName = "with " + leader.name;
+      }
     }, intervalMs);
   }
 

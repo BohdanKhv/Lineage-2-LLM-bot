@@ -730,6 +730,47 @@ app.post("/api/server/loginserver/restart", async (_req, res) => {
   })();
 });
 
+// -------------------------------------------------------- start servers -----
+// One button: bring up whatever is down, in order. MariaDB is a Windows
+// service (net start is harmless if it already runs); the two Java servers are
+// spawned detached exactly like the restart endpoints do.
+let serversStarting = false;
+app.get("/api/server/start/status", (_req, res) => res.json({ starting: serversStarting }));
+app.post("/api/server/start", async (_req, res) => {
+  if (serversStarting) return res.status(409).json({ error: "start already in progress" });
+  serversStarting = true;
+  res.json({ ok: true });
+  (async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    try {
+      try { execFileSync("net", ["start", "MariaDB"], { encoding: "utf8" }); emit("mariadb: service started"); }
+      catch (e) { emit("mariadb: already running (or needs admin to start)"); }
+
+      if (await lsUp()) emit("loginserver: already up");
+      else {
+        emit("loginserver: starting...");
+        const log = fs.openSync(path.join(BOT_DIR, "loginserver.log"), "a");
+        spawn(JAVA8, LS_ARGS, { cwd: LS_DIR, detached: true, stdio: ["ignore", log, log] }).unref();
+        const t0 = Date.now();
+        while (!(await lsUp()) && Date.now() - t0 < 60000) await wait(2000);
+        emit((await lsUp()) ? "loginserver: UP ✓" : "loginserver: not up after 60s — check bot/loginserver.log");
+      }
+
+      if (await gsUp()) emit("gameserver: already up");
+      else {
+        emit("gameserver: starting (30-60s)...");
+        const log = fs.openSync(path.join(BOT_DIR, "gameserver.log"), "a");
+        spawn(JAVA8, GS_ARGS, { cwd: GS_DIR, detached: true, stdio: ["ignore", log, log] }).unref();
+        const t0 = Date.now();
+        while (!(await gsUp()) && Date.now() - t0 < 180000) await wait(3000);
+        emit((await gsUp()) ? "gameserver: UP ✓ — it registers with the login server within ~30s, then logins work"
+                            : "gameserver: not up after 3 min — check bot/gameserver.log");
+      }
+      emit("servers: start sequence finished");
+    } finally { serversStarting = false; }
+  })();
+});
+
 // ------------------------------------------------- serve built front-end -----
 const dist = path.join(__dirname, "..", "webui", "dist");
 if (fs.existsSync(dist)) {
