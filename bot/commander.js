@@ -94,7 +94,10 @@ async function main() {
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   // Login raced against a timeout + retried: an account the server hasn't freed
   // yet (right after a mass logout / server restart) makes enter() hang forever.
-  const enterWithRetry = async (acc, tries = 4) => {
+  // Patient backoff (2.5s, 5s, 7.5s ... ≈40s total): after a rejected attempt the
+  // login server keeps the account "in use" for a while (REASON_ACCOUNT_IN_USE),
+  // so fast retries all fail and the bot is lost for the whole session.
+  const enterWithRetry = async (acc, tries = 6) => {
     for (let t = 1; ; t++) {
       const nb = new ArenaBot(acc, acc);
       try {
@@ -103,7 +106,7 @@ async function main() {
       } catch (err) {
         try { nb.disconnect(); } catch (e2) { /* noop */ }
         if (t >= tries) throw err;
-        await sleep(1500 * t);
+        await sleep(2500 * t);
       }
     }
   };

@@ -27,7 +27,12 @@ export default class RequestAuthLogin extends LoginServerPacket {
     const e = BigInt(65537);
     const modulus = BigInt(`0x${hexStr(this.session.publicKey)}`);
     const input = BigInt(`0x${hexStr(loginInfo)}`);
-    const encryptedLoginInfo = bigToUint8Array(modPow(input, e, modulus));
+    // The RSA result must be exactly 128 bytes, big-endian. bigToUint8Array drops
+    // leading zero bytes, so ~1 login in 256 came out 127 bytes short — the packet
+    // misaligned and the login server rejected it ("Wrong checksum from client").
+    const enc = bigToUint8Array(modPow(input, e, modulus));
+    const encryptedLoginInfo = new Uint8Array(128);
+    encryptedLoginInfo.set(enc.length > 128 ? enc.slice(enc.length - 128) : enc, Math.max(0, 128 - enc.length));
 
     this.writeC(0);
     this.writeB(encryptedLoginInfo);

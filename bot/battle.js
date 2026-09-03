@@ -81,7 +81,8 @@ function resetForBattle(reds, blues) {
   });
   const sw = process.env.L2_SWAP_SIDES ? -1 : 1; // diagnostic: swap which row each team spawns on
   place(reds, -sw); place(blues, sw);
-  execFileSync(MYSQL, ["-uroot", "-proot", "-D", "elmore", "-e", sql], { encoding: "utf8" });
+  // SQL via stdin, not `-e`: a 200-bot position reset exceeds the Windows arg limit.
+  execFileSync(MYSQL, ["-uroot", "-proot", "-D", "elmore"], { input: sql, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
   console.log(`spawning ${reds.length + blues.length} bots ${c.where} @ ${c.cx},${c.cy}`);
 }
 
@@ -108,8 +109,9 @@ async function bootAll(jobs, gear) {
             break;
           } catch (e) {
             try { bot.disconnect(); } catch (e2) { /* noop */ }
-            if (t >= 4) throw e;
-            await new Promise((r) => setTimeout(r, 1500 * t));
+            // Patient backoff: the login server holds a rejected account "in use" for a while.
+            if (t >= 6) throw e;
+            await new Promise((r) => setTimeout(r, 2500 * t));
           }
         }
         bots.push({ ...j, bot });

@@ -29,7 +29,9 @@ class RequestAuthLogin extends LoginServerPacket_1.default {
         const e = BigInt(65537);
         const modulus = BigInt(`0x${hexStr(this.session.publicKey)}`);
         const input = BigInt(`0x${hexStr(loginInfo)}`);
-        const encryptedLoginInfo = (0, BigintArith_1.bigToUint8Array)((0, BigintArith_1.modPow)(input, e, modulus));
+        const enc = (0, BigintArith_1.bigToUint8Array)((0, BigintArith_1.modPow)(input, e, modulus));
+        const encryptedLoginInfo = new Uint8Array(128);
+        encryptedLoginInfo.set(enc.length > 128 ? enc.slice(enc.length - 128) : enc, Math.max(0, 128 - enc.length));
         this.writeC(0);
         this.writeB(encryptedLoginInfo);
         this.writeD(this.session.sessionId);

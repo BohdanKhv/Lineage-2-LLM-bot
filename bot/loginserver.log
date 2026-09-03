@@ -1,0 +1,256 @@
+=================================================-[ LoginServer Configuration ]
+Loading: ./config/main/network.properties.
+Loading: ./config/main/security.properties.
+Loading: ./config/main/ban.properties.
+Loading: ./config/main/loginserver.properties.
+=================================================-[ LoginServer DataBase Load ]
+[INFO 2026-09-02 21:34:16]: L2DatabaseFactory: Connected to database server
+[INFO 2026-09-02 21:34:16]: ..................................................
+[INFO 2026-09-02 21:34:16]: System Time: 02-09-2026 09:34:16 PM
+[INFO 2026-09-02 21:34:16]: ..................................................
+[INFO 2026-09-02 21:34:16]: OS: Windows 11 Build: 10.0
+[INFO 2026-09-02 21:34:16]: OS Arch: amd64
+[INFO 2026-09-02 21:34:16]: ..................................................
+[INFO 2026-09-02 21:34:16]: ..................................................
+[INFO 2026-09-02 21:34:16]: Avaible CPU(s): 32
+[INFO 2026-09-02 21:34:16]: Processor(s) Identifier: Intel64 Family 6 Model 183 Stepping 1, GenuineIntel
+[INFO 2026-09-02 21:34:16]: ..................................................
+[INFO 2026-09-02 21:34:16]: ..................................................
+[INFO 2026-09-02 21:34:16]: Runtime Information
+[INFO 2026-09-02 21:34:16]: Current Free Heap Size: 230 mb
+[INFO 2026-09-02 21:34:16]: Current Heap Size: 245 mb
+[INFO 2026-09-02 21:34:16]: Maximum Heap Size: 245 mb
+[INFO 2026-09-02 21:34:16]: ..................................................
+[INFO 2026-09-02 21:34:16]: ..................................................
+[INFO 2026-09-02 21:34:16]: Java Platform Information
+[INFO 2026-09-02 21:34:16]: Java Runtime  Name: OpenJDK Runtime Environment
+[INFO 2026-09-02 21:34:16]: Java Version: 1.8.0_504
+[INFO 2026-09-02 21:34:16]: Java Class Version: 52.0
+[INFO 2026-09-02 21:34:16]: ..................................................
+[INFO 2026-09-02 21:34:16]: ..................................................
+[INFO 2026-09-02 21:34:16]: Virtual Machine Information (JVM)
+[INFO 2026-09-02 21:34:16]: JVM Name: OpenJDK 64-Bit Server VM
+[INFO 2026-09-02 21:34:16]: JVM installation directory: C:\Program Files\Eclipse Adoptium\jdk-8.0.504.1-hotspot\jre
+[INFO 2026-09-02 21:34:16]: JVM version: 25.504-b01
+[INFO 2026-09-02 21:34:16]: JVM Vendor: Temurin
+[INFO 2026-09-02 21:34:16]: JVM Info: mixed mode
+[INFO 2026-09-02 21:34:16]: ..................................................
+[INFO 2026-09-02 21:34:16]: ..................................................
+[INFO 2026-09-02 21:34:16]: GameServerManager: Loaded 127 server name(s)
+[INFO 2026-09-02 21:34:16]: GameServerManager: Loaded 1 server(s)
+[INFO 2026-09-02 21:34:16]: Cached 10 RSA keys for Game Server communication.
+[INFO 2026-09-02 21:34:16]: LoginManager initiating
+[INFO 2026-09-02 21:34:16]: Cached 10 KeyPairs for RSA communication
+[INFO 2026-09-02 21:34:16]: Stored 20 keys for Blowfish communication
+[INFO 2026-09-02 21:34:16]: BanManager: Loaded 3 banned ip/subnet(s).
+[INFO 2026-09-02 21:34:16]: Listening for GameServers on 127.0.0.1:9014
+===============================================================-[ Server Info ]
+[INFO 2026-09-02 21:34:16]: Token-based brut-proof enabled
+[INFO 2026-09-02 21:34:16]: Free memory: 210 Mb of 245 Mb
+[INFO 2026-09-02 21:34:16]: Ready on IP: 0.0.0.0:2106.
+[INFO 2026-09-02 21:34:16]: Load time: 0 Seconds.
+===============================================================-[ Server Info ]
+[INFO 2026-09-02 21:34:16]: Login Server successfully started.
+[INFO 2026-09-02 21:34:21]: User red1 connected from 127.0.0.1
+[INFO 2026-09-02 21:36:18]: Updated Gameserver [1] Bartz IP's:
+[INFO 2026-09-02 21:36:18]: 127.0.0.1
+[INFO 2026-09-02 21:36:18]: 127.0.0.1
+[INFO 2026-09-02 21:36:20]: User red1 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:02]: User red2 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:02]: User red3 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:02]: User red4 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:02]: User red5 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:02]: User red6 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:02]: User red7 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:02]: User red8 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:02]: User red9 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:02]: User red10 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:03]: User red12 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:03]: User red11 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:03]: User red13 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:03]: User red14 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:03]: User red15 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:03]: User red16 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:03]: User red17 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:03]: User red18 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:03]: User red20 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:03]: User red19 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:03]: User red21 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:03]: User red22 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:03]: User red23 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:03]: User red24 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:03]: User red25 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:03]: User red26 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:03]: User red28 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:03]: User red27 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:03]: User red29 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:03]: User red30 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:03]: User red31 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:03]: User red32 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:03]: User red33 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:03]: User red34 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:03]: User red35 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:03]: User red36 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:03]: User red37 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:04]: User red39 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:04]: User red38 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:04]: User red40 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:04]: User red42 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:04]: User red41 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:04]: User red43 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:04]: User red45 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:04]: User red44 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:04]: User red46 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:04]: User red47 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:04]: User red48 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:04]: User red50 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:04]: User red49 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:04]: User red51 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:04]: User red53 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:04]: User red52 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:04]: User red54 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:04]: User red55 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:04]: User red56 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:04]: User red57 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:04]: User red58 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:04]: User red59 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:04]: User red61 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:04]: User red60 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:05]: User red63 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:05]: User red64 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:05]: User red65 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:05]: User red66 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:05]: User red67 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:05]: User red68 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:05]: User red69 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:05]: User red70 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:05]: User red71 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:05]: User red72 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:05]: User red73 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:05]: User red74 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:05]: User red75 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:05]: User red76 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:05]: User red77 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:05]: User red78 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:05]: User red80 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:05]: User red79 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:05]: User red81 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:05]: User red83 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:05]: User red82 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:05]: User red84 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:05]: User red85 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:06]: User red86 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:06]: User red87 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:06]: User red88 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:06]: User red89 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:06]: User red91 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:06]: User red90 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:06]: User red93 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:06]: User red92 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:06]: User red94 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:06]: User red96 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:06]: User red95 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:06]: User red98 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:06]: User red97 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:06]: User red99 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:06]: User red100 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:06]: User blue1 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:06]: User blue2 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:06]: User blue4 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:06]: User blue3 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:06]: User blue7 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:06]: User blue5 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:06]: User blue6 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:07]: User blue9 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:07]: User blue8 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:07]: User blue10 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:07]: User blue11 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:07]: User blue12 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:07]: User blue13 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:07]: User blue15 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:07]: User blue14 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:07]: User blue17 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:07]: User blue16 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:07]: User blue18 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:07]: User blue20 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:07]: User blue19 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:07]: User blue23 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:07]: User blue21 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:07]: User blue22 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:07]: User blue24 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:07]: User blue25 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:08]: User blue26 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:08]: User blue27 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:08]: User blue28 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:08]: User blue30 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:08]: User blue29 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:08]: User blue31 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:08]: User blue32 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:08]: User blue33 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:08]: User blue35 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:08]: User blue34 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:08]: User blue36 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:08]: User blue38 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:08]: User blue39 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:08]: User blue37 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:08]: User blue40 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:08]: User blue41 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:08]: User blue43 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:08]: User blue42 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:09]: User blue44 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:09]: User blue47 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:09]: User blue46 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:09]: User blue45 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:09]: User blue48 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:09]: User blue49 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:09]: User blue50 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:09]: User blue51 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:09]: User blue52 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:09]: User blue54 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:09]: User blue53 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:09]: User blue55 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:09]: User blue56 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:09]: User blue57 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:09]: User blue59 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:09]: User blue58 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:10]: User blue60 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:10]: User blue61 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:10]: User blue62 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:10]: User blue63 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:10]: User blue64 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:10]: User blue65 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:10]: User blue67 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:10]: User blue66 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:10]: User blue68 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:10]: User blue69 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:10]: User blue70 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:10]: User blue71 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:10]: User blue72 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:10]: User blue73 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:11]: User blue75 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:11]: User blue76 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:11]: User blue74 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:11]: User blue77 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:11]: User blue79 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:11]: User blue78 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:11]: User blue80 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:11]: User blue81 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:11]: User blue82 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:11]: User blue83 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:11]: User blue84 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:11]: User blue85 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:11]: User blue86 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:11]: User blue87 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:11]: User blue88 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:11]: User blue89 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:11]: User blue90 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:11]: User blue91 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:11]: User blue92 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:11]: User blue93 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:11]: User blue95 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:11]: User blue94 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:12]: User blue96 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:12]: User blue97 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:12]: User blue98 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:12]: User blue99 connected from 127.0.0.1
+[INFO 2026-09-02 21:37:12]: User blue100 connected from 127.0.0.1

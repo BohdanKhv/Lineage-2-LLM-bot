@@ -275,7 +275,7 @@ app.post("/api/battle/start", async (req, res) => {
     else if (mode === "boss") args = ["battle.js", "boss"];
     else if (mode === "custom" || mode === "clan") {
       // Build an explicit two-team match.json and run the generalized arena.
-      let a, b, labelA, labelB;
+      let a, b, labelA, labelB, humansA = [], humansB = [];
       if (mode === "custom") {
         if (!teams || !Array.isArray(teams.a) || !Array.isArray(teams.b) || !teams.a.length || !teams.b.length)
           return res.status(400).json({ error: "teams.a[] and teams.b[] (char names) required" });
@@ -285,31 +285,33 @@ app.post("/api/battle/start", async (req, res) => {
         [labelA, labelB] = [teams.labelA || "Team A", teams.labelB || "Team B"];
       } else {
         if (!clanA || !clanB || clanA === clanB) return res.status(400).json({ error: "two different clan ids required" });
-        // Only BOT characters fight: skip GMs, elevated accounts (your Admin
-        // leads a clan!) and the spawn-at player — otherwise the whole enemy
-        // clan piles onto the human standing at the spawn point.
+        // Bots are booted; human/GM clan members (your Admin leads a clan!) are
+        // NOT booted (can't log in someone else's account) but they DO count as
+        // enemies — the opposing clan fights them like any other member.
         const gms = gmCharIds();
-        const skip = String(spawnAt || "").toLowerCase();
+        const humansOf = {};
         const members = async (cid) => {
           const rows = await q(
             `SELECT c.charId AS id, c.char_name AS name, LOWER(c.account_name) AS account, COALESCE(a.accessLevel, 0) AS lvl
                FROM characters c LEFT JOIN accounts a ON a.login = c.account_name WHERE c.clanid = :cid`, { cid });
-          const keep = [], out = [];
-          rows.forEach((r) => ((gms.has(Number(r.id)) || r.lvl > 0 || r.name.toLowerCase() === skip) ? out : keep).push(r));
-          excluded.push(...out.map((r) => r.name));
-          return keep.map((r) => ({ name: r.name, account: r.account }));
+          const isBotChar = (r) => /^(Red|Blue)\d+$/i.test(r.name) && !gms.has(Number(r.id)) && !(r.lvl > 0);
+          const bots = rows.filter(isBotChar), humans = rows.filter((r) => !isBotChar(r));
+          humansOf[cid] = humans.map((r) => r.name);
+          excluded.push(...humans.map((r) => r.name)); // reported to the UI as "fighting as humans"
+          return bots.map((r) => ({ name: r.name, account: r.account }));
         };
         const clanName = async (cid) => ((await q("SELECT clan_name AS n FROM clan_data WHERE clan_id = :cid", { cid }))[0] || {}).n || `clan ${cid}`;
         [a, b] = [await members(clanA), await members(clanB)];
         [labelA, labelB] = [await clanName(clanA), await clanName(clanB)];
-        if (!a.length || !b.length) return res.status(400).json({ error: "both clans need at least one BOT member (humans/GMs are excluded)" });
+        if (!a.length || !b.length) return res.status(400).json({ error: "both clans need at least one BOT member (humans fight but can't be booted)" });
+        humansA = humansOf[clanA] || []; humansB = humansOf[clanB] || [];
       }
       const matchPath = path.join(BOT_DIR, "match.json");
       fs.writeFileSync(matchPath, JSON.stringify({
         llm: !!llm,
         teams: [
-          { key: "A", label: labelA, color: "red", members: a },
-          { key: "B", label: labelB, color: "blue", members: b },
+          { key: "A", label: labelA, color: "red", members: a, humans: humansA },
+          { key: "B", label: labelB, color: "blue", members: b, humans: humansB },
         ],
       }, null, 2));
       args = ["arena.js"];
@@ -681,6 +683,50 @@ app.post("/api/server/gameserver/restart", async (_req, res) => {
       }
       emit("gameserver: still not up after 3min — check bot/gameserver.log");
     } finally { gsRestarting = false; }
+  })();
+});
+
+// ---------------------------------------------------- login server control ---
+// The login server can wedge (ghost sessions -> every login fails with
+// ACCOUNT_IN_USE / SERVER_OVERLOADED). Restarting it is safe: players in game
+// stay connected; the gameserver re-registers with it within ~30s.
+const LS_DIR = "D:\\l2srv\\login";
+const LS_ARGS = ["-Dfile.encoding=UTF-8", "-Xmx256m", "-cp", "./login.jar;../libs/*", "ru.catssoftware.loginserver.L2LoginServer"];
+const lsUp = () => new Promise((resolve) => {
+  const s = net.connect({ port: 2106, host: "127.0.0.1" });
+  s.on("connect", () => { s.destroy(); resolve(true); });
+  s.on("error", () => resolve(false));
+  s.setTimeout(1500, () => { s.destroy(); resolve(false); });
+});
+let lsRestarting = false;
+app.get("/api/server/loginserver/status", async (_req, res) => {
+  res.json({ loginserver: lsRestarting ? "restarting" : (await lsUp()) ? "up" : "down" });
+});
+app.post("/api/server/loginserver/restart", async (_req, res) => {
+  if (lsRestarting) return res.status(409).json({ error: "restart already in progress" });
+  lsRestarting = true;
+  res.json({ ok: true });
+  (async () => {
+    try {
+      emit("loginserver: stopping...");
+      try {
+        const out = execFileSync("powershell", ["-NoProfile", "-Command",
+          "Get-CimInstance Win32_Process -Filter \"Name='java.exe'\" | Where-Object { $_.CommandLine -match 'L2LoginServer' } | ForEach-Object { $_.ProcessId }"],
+          { encoding: "utf8" });
+        out.trim().split(/\s+/).filter(Boolean).forEach((pid) => { try { execFileSync("taskkill", ["/PID", pid, "/F"]); } catch (e) { /* gone */ } });
+      } catch (e) { /* nothing to kill */ }
+      await new Promise((r) => setTimeout(r, 2500));
+      emit("loginserver: starting...");
+      const log = fs.openSync(path.join(BOT_DIR, "loginserver.log"), "a");
+      const ls = spawn(JAVA8, LS_ARGS, { cwd: LS_DIR, detached: true, stdio: ["ignore", log, log] });
+      ls.unref();
+      const t0 = Date.now();
+      while (Date.now() - t0 < 60000) {
+        await new Promise((r) => setTimeout(r, 2000));
+        if (await lsUp()) { emit("loginserver: UP ✓ — the gameserver re-registers within ~30s; logins work after that"); return; }
+      }
+      emit("loginserver: not up after 60s — check bot/loginserver.log");
+    } finally { lsRestarting = false; }
   })();
 });
 

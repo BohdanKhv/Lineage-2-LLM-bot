@@ -6,6 +6,7 @@ export default function Actions({ notify }) {
   const [running, setRunning] = useState(null);
   const [online, setOnline] = useState({ n: 0, total: 0 });
   const [gs, setGs] = useState("?");
+  const [ls, setLs] = useState("?");
   const [summonTo, setSummonTo] = useState("Admin");
   const [buffWho, setBuffWho] = useState("");
   const [busy, setBusy] = useState(false);
@@ -15,6 +16,7 @@ export default function Actions({ notify }) {
       api.status().then((s) => setRunning(s.running)).catch(() => {});
       api.rosterStatus().then((rows) => setOnline({ n: rows.filter((r) => r.online).length, total: rows.length })).catch(() => {});
       api.serverStatus().then((s) => setGs(s.gameserver)).catch(() => setGs("?"));
+      api.loginserverStatus().then((s) => setLs(s.loginserver)).catch(() => setLs("?"));
     };
     tick();
     const t = setInterval(tick, 3000);
@@ -45,6 +47,7 @@ export default function Actions({ notify }) {
             <span className={"pill " + (online.n ? "on" : "off")}>🟢 {online.n}/{online.total} logged in</span>
             <span className={"pill " + (running ? "on" : "off")}>{running ? `running: ${running}` : "idle"}</span>
             <span className={"pill " + (gs === "up" ? "on" : "off")}>gameserver: {gs}</span>
+            <span className={"pill " + (ls === "up" ? "on" : "off")}>loginserver: {ls}</span>
           </div>
         </div>
         <p className="muted" style={{ fontSize: 12 }}>
@@ -68,6 +71,9 @@ export default function Actions({ notify }) {
           <Btn label="⟳ Restart gameserver" disabled={gs === "restarting"}
             onClick={() => { if (window.confirm("Restart the gameserver? Everyone in-game (including you) disconnects for ~30-60s.")) run("Gameserver", () => api.restartGameserver().then(() => ({ note: "restarting — watch the Battle log" }))); }}
             hint="Needed after clan / crest / GM changes." />
+          <Btn label="⟳ Restart login server" disabled={ls === "restarting"}
+            onClick={() => run("Login server", () => api.restartLoginserver().then(() => ({ note: "restarting — players in game stay; logins resume in ~30s" })))}
+            hint="If logins fail with ACCOUNT_IN_USE / SERVER_OVERLOADED for everyone." />
         </div>
       </div>
 

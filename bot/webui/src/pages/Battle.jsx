@@ -76,7 +76,7 @@ export default function Battle({ notify }) {
     }
     try {
       const r = await api.startBattle(payload);
-      if (r.excluded?.length) notify(`Not fighting (human/GM/spawn player): ${r.excluded.join(", ")}`);
+      if (r.excluded?.length) notify(`Human clan members in this fight (targets, not bots): ${r.excluded.join(", ")}`);
     } catch (e) { notify("Start failed: " + e.message); }
   };
   const cycle = (name) => setAssign((s) => {

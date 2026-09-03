@@ -23,7 +23,8 @@ process.on("unhandledRejection", (r) => {
 });
 
 const MYSQL = "C:\\Program Files\\MariaDB 10.6\\bin\\mysql.exe";
-const sh = (sql) => execFileSync(MYSQL, ["-uroot", "-proot", "-D", "elmore", "-e", sql], { encoding: "utf8" });
+// SQL via stdin, not `-e`: a 200-member position reset exceeds the Windows arg limit.
+const sh = (sql) => execFileSync(MYSQL, ["-uroot", "-proot", "-D", "elmore"], { input: sql, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
 const shN = (sql) => execFileSync(MYSQL, ["-uroot", "-proot", "-D", "elmore", "-sN", "-e", sql], { encoding: "utf8" });
 const esc = (s) => String(s).replace(/'/g, "");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -81,7 +82,9 @@ function resetForBattle() {
 
 // Login raced against a timeout + retried — an account the server hasn't
 // freed yet (right after a mass logout) makes enter() hang forever otherwise.
-async function enterWithRetry(acc, tries = 4) {
+// Patient backoff (2.5s, 5s, 7.5s ... ≈40s): after a rejected attempt the login
+// server keeps the account "in use" for a while, so fast retries all fail.
+async function enterWithRetry(acc, tries = 6) {
   for (let t = 1; ; t++) {
     const nb = new ArenaBot(acc, acc);
     try {
@@ -90,7 +93,7 @@ async function enterWithRetry(acc, tries = 4) {
     } catch (err) {
       try { nb.disconnect(); } catch (e2) { /* noop */ }
       if (t >= tries) throw err;
-      await sleep(1500 * t);
+      await sleep(2500 * t);
     }
   }
 }
@@ -147,8 +150,14 @@ ${bots.length} bots in world. Equipping (~${(dressMs / 1000).toFixed(0)}s), then
   // Enemies = only the OTHER team's bots that actually booted into this match.
   // Never anyone else — a human clan-mate, a GM, a bystander at the spawn.
   const focusA = new Map(), focusB = new Map(); // per-team shared focus maps (spread attacks)
+  // ...plus any HUMAN clan members (GM/Admin) listed for the other side: they
+  // aren't booted, but they are fair game if they show up.
   const bootedA = new Set(bots.filter((b) => b.team === teamA).map((b) => b.name));
   const bootedB = new Set(bots.filter((b) => b.team === teamB).map((b) => b.name));
+  (teamA.humans || []).forEach((n) => bootedA.add(n));
+  (teamB.humans || []).forEach((n) => bootedB.add(n));
+  if ((teamA.humans || []).length || (teamB.humans || []).length)
+    console.log(`humans in the fight: ${[...(teamA.humans || []), ...(teamB.humans || [])].join(", ")}`);
   bots.forEach(({ team, bot, cls }) => {
     const enemySet = team === teamA ? bootedB : bootedA;
     const isEnemy = (name) => enemySet.has(name);

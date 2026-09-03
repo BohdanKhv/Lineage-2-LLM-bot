@@ -36,5 +36,7 @@ export const api = {
   squad: (action) => post(`/api/squad/${action}`),
   buff: (names) => post("/api/squad/buff", { names }),
   restartGameserver: () => post("/api/server/gameserver/restart"),
+  restartLoginserver: () => post("/api/server/loginserver/restart"),
+  loginserverStatus: () => j("/api/server/loginserver/status"),
   status: () => j("/api/status"),
 };
