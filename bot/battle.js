@@ -6,7 +6,7 @@
 //   node battle.js 2          -> 2v2 (Red1-2 vs Blue1-2) quick test
 const ArenaBot = require("./arena-bot");
 const { execFileSync } = require("child_process");
-const { COMP } = require("./comp");
+const { COMP, loadArena } = require("./comp");
 process.on("unhandledRejection", (r) => {
   const m = String(r && r.message ? r.message : r);
   if (!/Connection is closed|Incomplete packet/.test(m)) console.error("unhandled:", m);
@@ -55,18 +55,18 @@ function teamChars(team) {
 //  - spread spawn positions into two facing rows. CRITICAL: bots must NOT share
 //    the exact same coordinate — melee attacks whiff at distance 0. Red row and
 //    Blue row are ~55 apart (melee range) so front-liners connect immediately.
-const ARENA = { cx: 145200, cy: -68800, z: -3746 }, GAP = 45, ROW = 55;
+const ARENA = loadArena(), GAP = 45, ROW = 55;
 // Spawn centre: next to the player named in L2_SPAWN_AT (last-saved position)
 // if that character exists, else the arena spot.
 function spawnCenter() {
   const who = (process.env.L2_SPAWN_AT || "").trim();
-  if (who) {
+  if (who && who.toLowerCase() !== "arena") {
     const row = execFileSync(MYSQL, ["-uroot", "-proot", "-D", "elmore", "-sN", "-e",
       `SELECT x, y, z FROM characters WHERE LOWER(char_name)=LOWER('${who.replace(/'/g, "")}');`], { encoding: "utf8" }).trim();
     if (row) { const [x, y, z] = row.split(/\t/).map(Number); return { cx: x, cy: y, z, where: `next to ${who}` }; }
     console.log(`  ! no character named "${who}" — spawning at the arena`);
   }
-  return { ...ARENA, where: "arena" };
+  return { ...ARENA, where: `arena (${ARENA.name || "default"})` };
 }
 // Gear already worn stays worn (equipped items persist across relogs); only
 // what the server reports as unworn gets equipped at boot — no equip storm.

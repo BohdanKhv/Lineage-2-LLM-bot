@@ -11,7 +11,7 @@ const fs = require("fs");
 const net = require("net");
 const { spawn, execFileSync } = require("child_process");
 const { q } = require("./db");
-const { DEFAULT_COMP, ROSTER_PATH, loadComp } = require("../comp");
+const { DEFAULT_COMP, ROSTER_PATH, loadComp, loadArena, ARENA_PATH } = require("../comp");
 
 const BOT_DIR = path.join(__dirname, "..");
 const app = express();
@@ -480,8 +480,8 @@ app.post("/api/clans/assign", async (req, res) => {
 // With commander running these go to its stdin (live relog cycle — the only
 // way to affect ONLINE characters, whose DB rows the server overwrites).
 // Otherwise they write the DB directly (bots offline -> applies on next login).
-const ARENA = { cx: 145200, cy: -68800, z: -3746 };
 async function squadDbSql(mode) {
+  const ARENA = loadArena();
   // level 80: the server re-derives level from exp at login; 4268429310 is a
   // known-good level-80 exp (the Admin char's).
   const lvl = mode === "level" ? ", level=80, exp=4268429310" : "";
@@ -623,6 +623,21 @@ app.post("/api/squad/buff", async (req, res) => {
         ? `buffs saved for ${rows.length}; ${online.join(", ")} ${online.length > 1 ? "are" : "is"} ONLINE — log out FIRST (a logout overwrites saved buffs), then log in`
         : `buffs saved for ${rows.length} — applied on next login`,
     });
+  } catch (e) { err(res, e); }
+});
+
+// ------------------------------------------------------------- arena spot ---
+app.get("/api/arena", (_req, res) => res.json(loadArena()));
+// Make the arena = a character's last-saved position (stand where you want the
+// squad to gather / fight, then click). Body: { name } (default Admin).
+app.post("/api/arena/set-here", async (req, res) => {
+  try {
+    const name = String((req.body && req.body.name) || "Admin");
+    const [c] = await q("SELECT char_name AS n, x, y, z, online FROM characters WHERE LOWER(char_name) = LOWER(:n)", { n: name });
+    if (!c) return res.status(404).json({ error: "no character named " + name });
+    const arena = { cx: Number(c.x), cy: Number(c.y), z: Number(c.z), name: "near " + c.n };
+    fs.writeFileSync(ARENA_PATH, JSON.stringify(arena, null, 2));
+    res.json({ ok: true, arena, note: c.online ? "using " + c.n + "'s last SAVED position (stand still / relog for an exact spot)" : "arena set" });
   } catch (e) { err(res, e); }
 });
 

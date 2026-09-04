@@ -9,7 +9,8 @@ export default class MyTargetSelected extends GameClientPacket {
     this.CreatureObjId = this.readD();
     const _color = this.readH();
 
-    const _pad = this.readD();
+    // High Five appends a dword; Interlude (this server) does not.
+    try { const _pad = this.readD(); } catch (e) { /* short packet: fine */ }
 
     return true;
   }

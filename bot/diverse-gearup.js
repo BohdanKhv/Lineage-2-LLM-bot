@@ -2,7 +2,7 @@
 // level 78, class-appropriate S-grade gear (inventory), and mages get an attack
 // skill. MUST run while bots are OFFLINE.
 const { execFileSync } = require("child_process");
-const { COMP, ARMOR, JEWELS, ARROWS } = require("./comp");
+const { COMP, ARMOR, JEWELS, ARROWS, SOULSHOTS, SPIRITSHOTS } = require("./comp");
 const MYSQL = "C:\\Program Files\\MariaDB 10.6\\bin\\mysql.exe";
 const q = (sql) => execFileSync(MYSQL, ["-uroot", "-proot", "-D", "elmore", "-sN", "-e", sql], { encoding: "utf8" });
 
@@ -80,6 +80,13 @@ for (const name of allChars) {
     // cannot attack AT ALL (another silent "bot just stands there" cause).
     const wrow = q(`SELECT weaponType, crystal_type FROM weapon WHERE item_id=${c.weapon};`).trim();
     const [wtype, wgrade] = wrow ? wrow.split("\t") : ["", ""];
+    // Shots matched to the weapon grade: soulshots for everyone, blessed
+    // spiritshots too for casters/healers (object-id offsets 15/16 are free).
+    const shotGrade = SOULSHOTS[wgrade] ? wgrade : "none";
+    const shots = [[SOULSHOTS[shotGrade], 15]];
+    if (c.role === "mage" || c.role === "healer") shots.push([SPIRITSHOTS[shotGrade], 16]);
+    shots.forEach(([item, off]) => q(`INSERT INTO items (owner_id, object_id, item_id, count, enchant_level, loc, loc_data, custom_type1, custom_type2, mana_left, first_owner_id, creator_id, creation_time)
+         VALUES (${cid}, ${OBJ_BASE + idx * 20 + off}, ${item}, 20000, 0, 'INVENTORY', 0, 0, 0, -1, ${cid}, 0, 0);`));
     let arrows = 0;
     if (wtype === "bow") {
       arrows = ARROWS[wgrade] || ARROWS.none;
@@ -99,7 +106,7 @@ for (const name of allChars) {
       q(`INSERT INTO character_skills (charId, skill_id, skill_level, skill_name, class_index) VALUES (${cid}, ${sk}, ${maxLvl}, '${skName}', 0);`);
     }
 
-    console.log(`  ✓ ${name} — ${c.name} (${c.role}), weapon +${wEnch}, ${items.length} items (gear+jewels)${arrows ? ", 50k arrows" : ""}, ${skills.length} skills`);
+    console.log(`  ✓ ${name} — ${c.name} (${c.role}), weapon +${wEnch}, ${items.length} items (gear+jewels)${arrows ? ", 50k arrows" : ""}, shots x${shots.length}, ${skills.length} skills`);
     idx++;
   }
 }

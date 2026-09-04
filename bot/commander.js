@@ -9,7 +9,7 @@
 //   node commander.js red        -> just the red team as your squad
 const ArenaBot = require("./arena-bot");
 const { execFileSync } = require("child_process");
-const { COMP } = require("./comp");
+const { COMP, loadArena } = require("./comp");
 const { buffSql } = require("./buffs");
 process.on("unhandledRejection", (r) => {
   const m = String(r && r.message ? r.message : r);
@@ -29,12 +29,14 @@ const shN = (sql) => execFileSync(MYSQL, ["-uroot", "-proot", "-D", "elmore", "-
 // Rings of 10 (~50 units apart) so nobody shares a coordinate.
 function prep(names) {
   let sql = `UPDATE characters SET curHp=99999, curMp=99999, curCp=99999 WHERE char_name IN (${names.map((n) => `'${n}'`).join(",")});\n`;
-  let cx = 145200, cy = -68800, cz = -3746, where = "arena";
+  const A = loadArena();
+  let cx = A.cx, cy = A.cy, cz = A.z, where = `arena (${A.name || "default"})`;
   // Explicit L2_SPAWN_AT=<player> wins (any online state); else Admin if online.
   const who = (process.env.L2_SPAWN_AT || "").trim();
-  const row = who ? shN(`SELECT x, y, z FROM characters WHERE LOWER(char_name)=LOWER('${who.replace(/'/g, "")}');`).trim() : "";
+  const forceArena = who.toLowerCase() === "arena"; // "arena" = the configured arena, even if Admin is online
+  const row = who && !forceArena ? shN(`SELECT x, y, z FROM characters WHERE LOWER(char_name)=LOWER('${who.replace(/'/g, "")}');`).trim() : "";
   if (row) { [cx, cy, cz] = row.split(/\t/).map(Number); where = `next to ${who} (last saved position)`; }
-  else {
+  else if (!forceArena) {
     if (who) console.log(`  ! no character named "${who}"`);
     const adm = shN(`SELECT x, y, z, online FROM characters WHERE char_name='Admin';`).trim().split(/\t/);
     if (adm.length === 4 && adm[3] === "1") { cx = +adm[0]; cy = +adm[1]; cz = +adm[2]; where = "Admin (last saved position)"; }
@@ -55,7 +57,10 @@ function gearMap(accs) {
   return map;
 }
 
-const command = { targetName: null, assistName: null, followName: null, summon: null, perBot: new Map() };
+// defend: fight-back toggle (default ON) — a bot that gets hit retaliates
+// against its attacker for ~15s. Individually: the rest of the squad does NOT
+// join in (that was tried and explicitly not wanted).
+const command = { targetName: null, assistName: null, followName: null, summon: null, perBot: new Map(), defend: true };
 // Names of the bots in this session (lowercase) — set in main(); lets a command
 // start with a bot name to scope it: "red3 follow admin", "red3 assist admin".
 let botNames = new Set();
@@ -83,6 +88,9 @@ function parseCommand(msg, speaker) {
   const am = m.match(/^assist(?:\s+(.+))?$/);
   if (am) { const who = !am[1] || am[1] === "me" ? speaker : am[1].trim(); return setOrder({ assistName: who, targetName: null }, `assisting ${who}`); }
   if (m === "look" || m === "who") { command.look = Date.now(); return "looking around"; }
+  // defend [on|off] / guard -> fight-back toggle (per bot: only the one hit retaliates)
+  const dm = m.match(/^(?:defend|guard|fight back|fightback)(?:\s+(on|off))?$/);
+  if (dm) { command.defend = dm[1] ? dm[1] === "on" : !command.defend; return `fight-back ${command.defend ? "ON — a bot that gets hit hits back (only that bot)" : "OFF — bots ignore being hit"}`; }
   // summon / come [to me]  -> regroup on the speaker; summon <name> -> on that player
   if (["summon", "summon me", "come", "come to me", "to me", "regroup"].includes(m)) {
     command.targetName = null; command.summon = { name: speaker, t: Date.now() };
@@ -113,6 +121,21 @@ function teamChars(team) {
 async function main() {
   const arg = process.argv[2];
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  // After a mass disconnect, wait until the server has actually processed the
+  // logouts (online=0) before touching those rows: a fixed pause lost a race —
+  // late logout-saves overwrote the new positions and bots logged back in at
+  // the old spot (25 of 98 respawned next to a raid boss and died).
+  const waitOffline = async (names, maxMs = 20000) => {
+    const list = names.map((n) => `'${String(n).replace(/'/g, "")}'`).join(",");
+    const t0 = Date.now();
+    while (Date.now() - t0 < maxMs) {
+      const n = +shN(`SELECT COUNT(*) FROM characters WHERE online=1 AND char_name IN (${list});`).trim();
+      if (!n) return true;
+      await sleep(500);
+    }
+    console.log(`  ! ${names.length} bot(s) still flagged online after ${maxMs / 1000}s — proceeding`);
+    return false;
+  };
   // Login raced against a timeout + retried: an account the server hasn't freed
   // yet (right after a mass logout / server restart) makes enter() hang forever.
   // Patient backoff (2.5s, 5s, 7.5s ... ≈40s total): after a rejected attempt the
@@ -152,8 +175,10 @@ async function main() {
       targetName: mine.targetName !== undefined ? mine.targetName : command.targetName,
       assistName: mine.assistName !== undefined ? mine.assistName : command.assistName,
       followName: mine.followName !== undefined ? mine.followName : command.followName,
+      fightBack: command.defend, // "defend": a bot that gets hit hits back — individually, never the whole squad
     };
   };
+  const onAttack = null; // (squad-wide retaliation was removed on request: only the hit bot responds)
 
   // If a previous session was just killed, the server is still saving those
   // characters — wait for them to show offline before we touch anything.
@@ -176,6 +201,8 @@ async function main() {
       if (res && echo) console.log(`\n[${p.CharName}] "${(p.Messages || []).join(" ")}"  ->  ${res}\n`);
     });
     if (role.role === "healer") bot.healerBattle((n) => rosterNames.has(n), { skills: role.skills });
+    bot.onAttack = onAttack;
+    if (role.role === "healer") { /* healers keep healing; they still report hits via onAttack */ }
     else bot.commanderBattle(() => ordersFor(bot.username), { role: role.role, skills: role.skills });
   };
 
@@ -214,7 +241,7 @@ async function main() {
       await sleep(w * 120);
       while (queue.length) {
         const [e, i] = queue.shift();
-        try { const nb = await enterWithRetry(e.acc); wire(nb, e.role, i === 0); e.bot = nb; }
+        try { const nb = await enterWithRetry(e.acc); wire(nb, e.role, i === 0); e.bot = nb; nb.equipInventory(0).catch(() => {}); }
         catch (err) { console.log(`  ✗ ${e.name}: ${err.message || err}`); }
       }
     }));
@@ -255,7 +282,8 @@ async function main() {
       const t0 = Date.now();
       console.log(`  ↯ teleporting ${far.length} bots (batched relog)...`);
       far.forEach(([e]) => { try { e.bot.disconnect(); } catch (err) { /* already gone */ } });
-      await sleep(2500); // mass logout needs a moment to persist + free the accounts
+      await sleep(800);
+      await waitOffline(far.map(([e]) => e.name)); // logout-saves must land before we write positions
       // One bulk write: destination + full HP/MP/CP so dead bots arrive alive.
       const sql = far.map(([e, , x, y, z]) =>
         `UPDATE characters SET x=${x}, y=${y}, z=${z}, curHp=99999, curMp=99999, curCp=99999 WHERE char_name='${e.name.replace(/'/g, "")}';`
@@ -278,7 +306,8 @@ async function main() {
     const t0 = Date.now();
     console.log(`${mode}: relogging ${targets.length} bots (batched)...`);
     targets.forEach((e) => { try { e.bot.disconnect(); } catch (err) { /* already gone */ } });
-    await sleep(2500); // a mass logout takes the server a moment to persist + free the accounts
+    await sleep(800);
+    await waitOffline(targets.map((e) => e.name)); // logout-saves must land before we write HP/positions/buffs
     // One bulk UPDATE: full HP/MP/CP for all, + arena-cluster coords for respawn.
     const names = targets.map((e) => `'${e.name.replace(/'/g, "")}'`).join(",");
     // level: the server re-derives level from exp at login, so exp is what matters
@@ -287,8 +316,9 @@ async function main() {
     let sql = `UPDATE characters SET curHp=99999, curMp=99999, curCp=99999${lvl} WHERE char_name IN (${names});`;
     if (mode === "respawn") {
       targets.forEach((e, i) => {
-        const x = 145200 + ((i % 7) - 3) * 45, y = -68800 + (Math.floor(i / 7) - 1) * 45;
-        sql += `\nUPDATE characters SET x=${x}, y=${y}, z=-3746 WHERE char_name='${e.name.replace(/'/g, "")}';`;
+        const A2 = loadArena();
+        const x = A2.cx + ((i % 7) - 3) * 45, y = A2.cy + (Math.floor(i / 7) - 1) * 45;
+        sql += `\nUPDATE characters SET x=${x}, y=${y}, z=${A2.z} WHERE char_name='${e.name.replace(/'/g, "")}';`;
       });
     }
     if (mode === "buff") {
@@ -339,17 +369,20 @@ async function main() {
     const b = bots.find((e) => !e.bot.isDead());
     if (!b) return;
     try {
-      const seen = b.bot.getState().targets.filter((t) => t.name)
-        .sort((x, y) => (x.distance ?? 1e9) - (y.distance ?? 1e9)).slice(0, 25)
-        .map((t) => `${t.name}${t.isNpc ? " (npc)" : ""} @${t.distance ?? "?"}`);
-      console.log(`[look from ${b.name}] ${seen.join(" · ") || "nothing nearby"}`);
+      const all = b.bot.getState().targets.filter((t) => t.name)
+        .sort((x, y) => (x.distance ?? 1e9) - (y.distance ?? 1e9));
+      const fmt = (t) => `${t.name} @${t.distance ?? "?"}`;
+      const npcs = all.filter((t) => t.isNpc).slice(0, 15).map(fmt);
+      const players = all.filter((t) => !t.isNpc && !rosterNames.has(t.name)).slice(0, 10).map(fmt);
+      const botsNear = all.filter((t) => !t.isNpc && rosterNames.has(t.name)).length;
+      console.log(`[look from ${b.name}] NPCs: ${npcs.join(" · ") || "none"}  |  players: ${players.join(" · ") || "none"}  |  our bots nearby: ${botsNear}`);
     } catch (e) { /* not ready */ }
   }, 500);
 
   // Per-bot status for the web panel, plus a human-readable target line.
   setInterval(() => {
     console.log("STATUS " + JSON.stringify(bots.map(({ acc, team, bot }) => ({ acc, team, ...bot.snapshot() }))));
-    console.log(`[${new Date().toLocaleTimeString()}] kill: ${command.targetName || "-"}  assist: ${command.assistName || "-"}  follow: ${command.followName || "-"}${command.perBot.size ? "  (+" + command.perBot.size + " per-bot)" : ""}  ·  ${bots.filter(({ bot }) => !bot.isDead()).length}/${bots.length} up`);
+    console.log(`[${new Date().toLocaleTimeString()}] kill: ${command.targetName || "-"}  assist: ${command.assistName || "-"}  follow: ${command.followName || "-"}${command.perBot.size ? "  (+" + command.perBot.size + " per-bot)" : ""}  defend: ${command.defend ? "on" : "off"}  ·  ${bots.filter(({ bot }) => !bot.isDead()).length}/${bots.length} up`);
   }, 3000);
 
   console.log(`\n${bots.length} bots standing by. In game chat: "kill <name>", "attack me", "summon" / "summon <name>", "follow [name]", "assist [name]", "kill <player|npc>", "look", "restore", "respawn", "buff", or "stop" — prefix with a bot name to order just that bot (e.g. "red3 follow admin") — or use the web command box. Ctrl+C to log out.`);

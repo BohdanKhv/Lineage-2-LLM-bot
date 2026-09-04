@@ -12,6 +12,12 @@ const ARMOR = {
 // Everyone gets the full S-grade jewel set: 2 earrings, 2 rings, necklace.
 const JEWELS = [858, 858, 889, 889, 920];      // Tateossian Earring x2, Ring x2, Necklace
 
+// Soulshots (everyone) and Blessed Spiritshots (casters) by weapon grade.
+// Bots arm auto-use after every login (RequestAutoSoulShot); the server then
+// burns one per hit / cast — roughly double melee damage, much more for nukes.
+const SOULSHOTS = { none: 1835, d: 1463, c: 1464, b: 1465, a: 1466, s: 1467 };
+const SPIRITSHOTS = { none: 3947, d: 3948, c: 3949, b: 3950, a: 3951, s: 3952 }; // blessed
+
 // Arrows by bow grade (etcitem ids) — a bow without arrows cannot fire at all.
 const ARROWS = { s: 1345, a: 1344, b: 1343, c: 1342, d: 1341, none: 17 };
 
@@ -76,4 +82,18 @@ function loadComp() {
 
 const COMP = loadComp();
 
-module.exports = { COMP, DEFAULT_COMP, ARMOR, JEWELS, ARROWS, ROSTER_PATH, loadComp };
+// Arena spawn spot (idle/respawn/battle rows). bot/arena.json overrides it —
+// written by the panel's "Set arena = my position". The previous hard-coded
+// default (145200,-68800) turned out to sit inside Ketra Orc Outpost: bots
+// idling there were farmed by elite orcs. Default is now the Coliseum floor.
+const ARENA_PATH = path.join(__dirname, "arena.json");
+const DEFAULT_ARENA = { cx: 149500, cy: 46050, z: -3400, name: "Coliseum" };
+function loadArena() {
+  try {
+    const a = JSON.parse(fs.readFileSync(ARENA_PATH, "utf8"));
+    if (Number.isFinite(a.cx) && Number.isFinite(a.cy) && Number.isFinite(a.z)) return { ...DEFAULT_ARENA, ...a };
+  } catch (e) { /* no override */ }
+  return DEFAULT_ARENA;
+}
+
+module.exports = { COMP, DEFAULT_COMP, ARMOR, JEWELS, ARROWS, SOULSHOTS, SPIRITSHOTS, ROSTER_PATH, loadComp, ARENA_PATH, DEFAULT_ARENA, loadArena };

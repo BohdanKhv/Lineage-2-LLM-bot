@@ -8,6 +8,7 @@ const RequestDuelAnswerStart = require("./vendor/l2js-client/dist/network/outgoi
 const Action = require("./vendor/l2js-client/dist/network/outgoing/game/Action").default;
 const RequestMagicSkillUse = require("./vendor/l2js-client/dist/network/outgoing/game/RequestMagicSkillUse").default;
 const RequestItemList = require("./vendor/l2js-client/dist/network/outgoing/game/RequestItemList").default;
+const RequestAutoSoulShot = require("./vendor/l2js-client/dist/network/outgoing/game/RequestAutoSoulShot").default;
 const llm = require("./llm");
 
 // NPC template id -> name (filled by the engine from the DB `npc` table). The
@@ -58,6 +59,18 @@ class ArenaBot {
       if (DEBUG) console.log(`  [${this.username}] REVIVE id=${id} (${nameOf(id)})`);
       if (id) { this._dead.delete(id); if (id === this.client.Me?.ObjectId) this._selfDead = false; }
     });
+    // What the server says we have selected. A plain Action on the object we
+    // ALREADY have selected is an attack (that's how a double-click works), so
+    // castOn() and the healer scan consult this to never re-select by accident.
+    this.client.GameClient.on("PacketReceived:MyTargetSelected", (e) => {
+      const p = e && e.data && e.data.packet;
+      if (p && p.CreatureObjId) this._selected = p.CreatureObjId;
+    });
+    this.client.GameClient.on("PacketReceived:TargetUnselected", (e) => {
+      const p = e && e.data && e.data.packet;
+      const myId = this.client.Me && this.client.Me.ObjectId;
+      if (p && (!p.ObjectId || p.ObjectId === myId)) this._selected = null;
+    });
     // Fight-back: if someone attacks me, remember them so I can retaliate.
     this.client.GameClient.on("PacketReceived:Attack", (e) => {
       const p = e && e.data && e.data.packet;
@@ -70,6 +83,8 @@ class ArenaBot {
       if (p && p.AttackerObjectId && p.Subjects && p.Subjects.length) {
         this._attacks = this._attacks || new Map();
         this._attacks.set(p.AttackerObjectId, { targetId: p.Subjects[0], t: Date.now() });
+        // Squad defense hook (set by the engine): every observed hit is reported.
+        if (this.onAttack) for (const v of p.Subjects) this.onAttack(p.AttackerObjectId, v);
       }
       // Damage taken per creature (last few seconds) — a healer's "who's being hit".
       if (p && Array.isArray(p.Hits)) {
@@ -90,8 +105,17 @@ class ArenaBot {
       if (p && p.ActiveCharObjId && p.TargetObjId && p.TargetObjId !== p.ActiveCharObjId) {
         this._attacks = this._attacks || new Map();
         this._attacks.set(p.ActiveCharObjId, { targetId: p.TargetObjId, t: Date.now() });
+        if (this.onAttack) this.onAttack(p.ActiveCharObjId, p.TargetObjId);
       }
     });
+    if (DEBUG) {
+      // Server replies to things like auto-shot arming with a SystemMessage id.
+      this.client.GameClient.on("PacketReceived:SystemMessage", (e) => {
+        const p = e && e.data && e.data.packet;
+        const id = p && (p.messageId ?? p.MessageId);
+        if (id !== undefined) console.log(`  [${this.username}] SYSMSG ${id}${p.Params ? " " + JSON.stringify(p.Params).slice(0, 80) : ""}`);
+      });
+    }
     this._startHeartbeat();
     return this;
   }
@@ -160,11 +184,19 @@ class ArenaBot {
   // --- actions ---
   moveTo(x, y, z) { this.client.moveTo(x, y, z); }
   attack(objectId) { this.client.attack(objectId); }
-  forceAttack(objectId) { this.client.attack(objectId, true); } // Ctrl-attack (PvP flag)
-  // Target an object, then cast a skill on it (for mages/healers).
+  forceAttack(objectId) { this._selected = objectId; this.client.attack(objectId, true); } // Ctrl-attack (PvP flag)
+  // Target an object, then cast a skill on it (for mages/healers). If it is
+  // already our selected target we must NOT send another Action — that would
+  // be a double-click, i.e. a plain attack on it (healers were hitting the
+  // ally they had just healed). Cast straight away instead.
   castOn(skillId, objectId) {
     const me = this.client.Me;
     if (!me) return;
+    if (this._selected === objectId) {
+      this.client.GameClient.sendPacket(new RequestMagicSkillUse(skillId, true, false));
+      return;
+    }
+    this._selected = objectId;
     this.client.GameClient.sendPacket(new Action(objectId, me.X, me.Y, me.Z, false));
     setTimeout(() => {
       this.client.GameClient.sendPacket(new RequestMagicSkillUse(skillId, true, false));
@@ -194,10 +226,26 @@ class ArenaBot {
     }
     const todo = items.filter((it) => !it.IsEquipped && it.ObjectId >= 310000000 && it.ObjectId < 400000000 && it.BodyPart);
     todo.forEach((it, k) => setTimeout(() => this.useItem(it.ObjectId), startDelayMs + k * perItemMs));
+    // Arm auto soul/spiritshots once the weapon is on (the server rejects a
+    // grade mismatch, so this must come after the equips). Auto-use does not
+    // survive a relog, so this runs on every login, not just the first boot.
+    setTimeout(() => this.enableShots(items), startDelayMs + todo.length * perItemMs + 900);
     return { seen: items.length, equipping: todo.length };
   }
   say(text) { this.client.say(text); }
   useItem(objectId) { this.client.useItem(objectId); }
+
+  // --- soulshots / spiritshots: enable auto-use for every shot type we carry ---
+  static get SHOT_IDS() { return new Set([1835, 1463, 1464, 1465, 1466, 1467, 3947, 3948, 3949, 3950, 3951, 3952, 2509, 2510, 2511, 2512, 2513, 2514]); }
+  enableShots(items) {
+    const inv = items || Array.from(this.client.InventoryItems || []);
+    const shots = inv.filter((it) => ArenaBot.SHOT_IDS.has(it.Id) && (it.Count ?? 1) > 0);
+    for (const it of shots) {
+      try { this.client.GameClient.sendPacket(new RequestAutoSoulShot(it.Id, 1)); } catch (e) { /* not in world */ }
+    }
+    if (process.env.L2_DEBUG) console.log(`  [${this.username}] auto-shots armed: ${shots.map((s) => s.Id).join(",") || "none in inventory"}`);
+    return shots.length;
+  }
 
   // --- consumables: auto-pot CP and MP ---
   // Greater CP Potion (5592) / CP Potion (5591) below 60% CP; Mana Potion (728) /
@@ -237,7 +285,6 @@ class ArenaBot {
     this._battle = setInterval(() => {
       if (this.isDead()) return;
       this.autoPotions();
-      this.autoPotions();
       const me = this.client.Me;
       if (!me) return;
       const st = this.getState();
@@ -264,8 +311,10 @@ class ArenaBot {
       this._curTargetName = null;
       if (allies.length) {
         // Refresh one ally's HP (selecting them makes the server send its StatusUpdate).
-        const a = allies[this._scanIdx++ % allies.length];
-        this.client.GameClient.sendPacket(new Action(a.objectId, me.X, me.Y, me.Z, false));
+        // Never re-select the one we already have selected: that is a double-click = attack.
+        let a = allies[this._scanIdx++ % allies.length];
+        if (a.objectId === this._selected) { if (allies.length < 2) a = null; else a = allies[this._scanIdx++ % allies.length]; }
+        if (a) { this._selected = a.objectId; this.client.GameClient.sendPacket(new Action(a.objectId, me.X, me.Y, me.Z, false)); }
         // Stay with the team: close in if the nearest ally is far.
         const near = [...allies].sort((p, q) => (p.distance ?? 1e9) - (q.distance ?? 1e9))[0];
         if (near && (near.distance ?? 0) > 400) this.moveTo(near.x, near.y, near.z);
@@ -381,7 +430,9 @@ class ArenaBot {
         const a = leader && this._attacks && this._attacks.get(leader.objectId);
         if (a && now - a.t < 6000) target = view.find((t) => t.objectId === a.targetId);
       }
-      if (!target && this._lastAttacker && now - (this._lastAttackerAt || 0) < 15000) {
+      // fight back: ONLY the bot that was hit retaliates (toggle: "defend on/off");
+      // the rest of the squad ignores it unless they have their own orders.
+      if (!target && o.fightBack !== false && this._lastAttacker && now - (this._lastAttackerAt || 0) < 15000) {
         target = view.find((t) => t.objectId === this._lastAttacker);
       }
       if (target) { this.engage(target, role, skills); return; }

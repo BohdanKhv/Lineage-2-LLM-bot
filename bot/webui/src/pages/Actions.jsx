@@ -87,6 +87,8 @@ export default function Actions({ notify }) {
             hint="Full bars for everyone; revives the dead." />
           <Btn label="⟲ Respawn at arena" onClick={() => run("Respawn", () => api.squad("respawn"))}
             hint="Restore + regroup at the arena spot." />
+          <Btn label="📍 Set arena = my position" onClick={() => run("Arena", () => api.setArenaHere(summonTo.trim() || "Admin"))}
+            hint="Makes the arena the spot where the named player (default Admin) last saved. Default arena: the Coliseum." />
           <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 280 }}>
             <div className="row" style={{ gap: 6 }}>
               <input value={buffWho} onChange={(e) => setBuffWho(e.target.value)} style={{ width: 130 }} placeholder="everyone" />
@@ -106,6 +108,7 @@ export default function Actions({ notify }) {
               <button disabled={busy || !isCmd} onClick={() => run(`Assist ${summonTo}`, () => api.command(`assist ${summonTo.trim() || "Admin"}`).then(() => ({ note: "squad attacks whatever that player attacks" })))}>⚔ Assist</button>
               <button disabled={busy || !isCmd} onClick={() => run(`Kill ${summonTo}`, () => api.command(`kill ${summonTo.trim()}`).then(() => ({ note: "squad focuses that player / npc" })))}>🎯 Kill</button>
               <button disabled={busy || !isCmd} onClick={() => run("Stand down", () => api.command("stop").then(() => ({ note: "orders cleared" })))}>✋ Stand down</button>
+              <button disabled={busy || !isCmd} title="Toggle fight-back: a bot that gets hit hits back — only that bot (on by default)" onClick={() => run("Defend", () => api.command("defend").then(() => ({ note: "toggled fight-back — see the log for on/off" })))}>🛡 Defend</button>
             </div>
             <span className="muted" style={{ fontSize: 11 }}>
               {isCmd ? "Orders for the whole squad. In game chat you can also scope one bot: \"red3 follow admin\", \"red3 assist admin\"; \"look\" lists what's nearby." : "Needs a commander session (Log in all)."}

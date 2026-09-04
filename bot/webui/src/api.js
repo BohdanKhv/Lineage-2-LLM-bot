@@ -38,6 +38,8 @@ export const api = {
   restartGameserver: () => post("/api/server/gameserver/restart"),
   restartLoginserver: () => post("/api/server/loginserver/restart"),
   startServers: () => post("/api/server/start"),
+  arena: () => j("/api/arena"),
+  setArenaHere: (name) => post("/api/arena/set-here", { name }),
   loginserverStatus: () => j("/api/server/loginserver/status"),
   status: () => j("/api/status"),
 };

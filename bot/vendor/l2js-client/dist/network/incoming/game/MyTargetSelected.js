@@ -9,7 +9,10 @@ class MyTargetSelected extends GameClientPacket_1.default {
         const _id = this.readC();
         this.CreatureObjId = this.readD();
         const _color = this.readH();
-        const _pad = this.readD();
+        try {
+            const _pad = this.readD();
+        }
+        catch (e) { }
         return true;
     }
 }

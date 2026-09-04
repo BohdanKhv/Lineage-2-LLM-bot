@@ -16,7 +16,7 @@ const fs = require("fs");
 const path = require("path");
 const ArenaBot = require("./arena-bot");
 const { execFileSync } = require("child_process");
-const { loadComp } = require("./comp");
+const { loadComp, loadArena } = require("./comp");
 process.on("unhandledRejection", (r) => {
   const m = String(r && r.message ? r.message : r);
   if (!/Connection is closed|Incomplete packet/.test(m)) console.error("unhandled:", m);
@@ -50,15 +50,15 @@ function classMap(names) {
 
 // Where to spawn: next to the player named in L2_SPAWN_AT (their last-saved
 // position) if that character exists, else the arena spot.
-const ARENA = { cx: 145200, cy: -68800, z: -3746 };
+const ARENA = loadArena();
 function spawnCenter() {
   const who = (process.env.L2_SPAWN_AT || "").trim();
-  if (who) {
+  if (who && who.toLowerCase() !== "arena") {
     const row = shN(`SELECT x, y, z FROM characters WHERE LOWER(char_name)=LOWER('${esc(who)}');`).trim();
     if (row) { const [x, y, z] = row.split(/\t/).map(Number); return { cx: x, cy: y, z, where: `next to ${who}` }; }
     console.log(`  ! no character named "${who}" — spawning at the arena`);
   }
-  return { ...ARENA, where: "arena" };
+  return { ...ARENA, where: `arena (${ARENA.name || "default"})` };
 }
 
 // Full HP/MP/CP and the two teams as facing rows (7 per row) around the spawn
